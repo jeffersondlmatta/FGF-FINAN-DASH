@@ -1,0 +1,144 @@
+// src/pages/App.jsx
+import "./App.css";
+import { useEffect, useState } from "react";
+import { useTitulosFinanceiro } from "../hooks/useTitulosFinanceiro.js";
+import { EmpresaFilter } from "../components/EmpresaFilter.jsx";
+import { TitulosTable } from "../components/TitulosTable.jsx";
+import { exportClientesParaExcel } from "../utils/exportClientesParaExcel.js";
+
+export default function App() {
+  const {
+    empresa,
+    setEmpresa,
+    titulos,
+    erro,
+    loading,
+    updating,
+    modo,          // "titulos" | "bloqueio" | "desbloqueio"
+    hasMore,
+    pageSize,
+    carregarTitulos,
+    buscarParaBloqueio,
+    buscarPagosBloqueados,
+    carregarMais,
+    toggleBloqueio,
+  } = useTitulosFinanceiro();
+
+  const [showToTop, setShowToTop] = useState(false);
+
+  const handleExportarExcel = () => {
+    if (modo !== "bloqueio" && modo !== "desbloqueio") {
+      alert(
+        "A exportação está disponível apenas para 'Clientes para bloqueio' ou 'Pagos & Bloqueados'."
+      );
+      return;
+    }
+
+    if (!titulos.length) {
+      alert("Não há registros para exportar.");
+      return;
+    }
+
+    exportClientesParaExcel(titulos);
+  };
+
+  // Scroll infinito + botão "voltar ao topo"
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop =
+        window.scrollY || document.documentElement.scrollTop;
+      const windowHeight =
+        window.innerHeight || document.documentElement.clientHeight;
+      const fullHeight = document.documentElement.scrollHeight;
+
+      setShowToTop(scrollTop > 300);
+
+      if (loading || !titulos.length || !hasMore) return;
+
+      if (scrollTop + windowHeight >= fullHeight - 200) {
+        carregarMais();
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [loading, titulos.length, hasMore, carregarMais]);
+
+  return (
+    <div className="app-container">
+      <h1 className="app-title">FGF - Financeiro</h1>
+
+      <EmpresaFilter
+        empresa={empresa}
+        onChangeEmpresa={setEmpresa}
+        onBuscarTitulos={carregarTitulos}
+        onBuscarBloqueio={buscarParaBloqueio}
+        onBuscarDesbloqueio={buscarPagosBloqueados}
+        loading={loading}
+      />
+
+      {/* Ações gerais (exportar, contagem) */}
+      {titulos.length > 0 && (
+        <div className="actions-bar">
+          {(modo === "bloqueio" || modo === "desbloqueio") && (
+            <button
+              className="btn btn-outline"
+              onClick={handleExportarExcel}
+              disabled={loading || titulos.length === 0}
+            >
+              {modo === "bloqueio"
+                ? "Exportar Excel (clientes para bloqueio)"
+                : "Exportar Excel (pagos & bloqueados)"}
+            </button>
+          )}
+
+          <span className="pagination-info">
+            Registros carregados: {titulos.length} (lote de {pageSize})
+            {hasMore ? " — rolando carrega mais..." : " — fim da lista."}
+          </span>
+        </div>
+      )}
+
+      {/* Mensagens */}
+      {erro && <p className="msg msg-error">Erro: {erro}</p>}
+      {loading && <p className="msg">Carregando...</p>}
+      {!loading && !erro && titulos.length === 0 && (
+        <p className="msg">Nenhum título encontrado.</p>
+      )}
+
+      <TitulosTable
+        titulos={titulos}
+        updating={updating}
+        onToggleBloqueio={toggleBloqueio}
+      />
+
+      {!loading && titulos.length > 0 && (
+        <p className="msg">
+          Modo atual:{" "}
+          <strong>
+            {modo === "titulos"
+              ? "Títulos em aberto da empresa"
+              : modo === "bloqueio"
+              ? "Clientes para bloqueio"
+              : "Pagos & Bloqueados"}
+          </strong>
+        </p>
+      )}
+
+      {/* Botão Voltar ao topo */}
+      {showToTop && (
+        <button
+          className="btn btn-secondary btn-voltar-topo"
+          onClick={() =>
+            window.scrollTo({
+              top: 0,
+              behavior: "smooth",
+            })
+          }
+        >
+          Voltar ao topo
+        </button>
+      )}
+    </div>
+  );
+}
