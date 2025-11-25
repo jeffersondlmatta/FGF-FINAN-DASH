@@ -1,0 +1,40 @@
+version: "3.9"
+
+services:
+  db:
+    build: ./db
+    container_name: snk_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: financeiro
+
+  etl:
+    build: ./etl
+    container_name: snk_etl
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgres://postgres:root@db:5432/financeiro
+      AUTH_URL: ${AUTH_URL}
+      GATEWAY_URL: ${GATEWAY_URL}
+      SNK_CLIENT_ID: ${SNK_CLIENT_ID}
+      SNK_CLIENT_SECRET: ${SNK_CLIENT_SECRET}
+      SNK_X_TOKEN: ${SNK_X_TOKEN}
+
+  app:
+    build: ./app
+    container_name: snk_app
+    depends_on:
+      - db
+    ports:
+      - "3333:3333"
+    environment:
+      DATABASE_URL: postgres://postgres:root@db:5432/financeiro
+
+volumes:
+  db_data:
