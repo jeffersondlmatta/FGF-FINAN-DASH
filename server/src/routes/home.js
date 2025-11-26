@@ -211,4 +211,6 @@ router.patch("/clientes/:codparc/bloqueio", async (req, res) => {
   }
 });
 
+
+
 export default router;

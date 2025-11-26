@@ -5,7 +5,7 @@ export function EmpresaFilter({
   onChangeEmpresa,
   onBuscarTitulos,
   onBuscarBloqueio,
-  onBuscarDesbloqueio,   // <-- AGORA EXISTE!
+  onBuscarDesbloqueio,  
   loading,
 }) {
   return (
@@ -26,7 +26,7 @@ export function EmpresaFilter({
         className="btn btn-primary"
         disabled={loading}
       >
-        Buscar títulos em aberto
+        Buscar
       </button>
 
       <button
@@ -34,7 +34,7 @@ export function EmpresaFilter({
         className="btn btn-danger"
         disabled={loading}
       >
-        Bloquear clientes
+        Passivo de bloqueio 
       </button>
 
       <button

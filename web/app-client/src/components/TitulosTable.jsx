@@ -18,6 +18,7 @@ export function TitulosTable({ titulos, updating, onToggleBloqueio }) {
             <th>Dias atraso</th>
             <th>Situação</th>
             <th>Ação</th>
+             
           </tr>
         </thead>
         <tbody>
