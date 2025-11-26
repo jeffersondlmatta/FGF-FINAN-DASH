@@ -1,0 +1,166 @@
+import pg from "pg";
+import "dotenv/config";
+const { Pool } = pg;
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+// Parse dd/mm/yyyy
+function parseDMY(dmy) {
+  if (!dmy || typeof dmy !== "string" || !dmy.includes("/")) return null;
+  const [d, m, y] = dmy.split("/").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+// Calcula status (pago / atrasado / a vencer)
+function calcStatus(DTVENC, dhBaixa) {
+  if (dhBaixa) return "pago";
+  if (!DTVENC) return null;
+
+  const hoje = new Date();
+  const z = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  const vencZ = z(DTVENC);
+  const hojeZ = z(hoje);
+
+  if (vencZ < hojeZ) return "atrasado";
+  return "a vencer";
+}
+
+// Calcula atraso em dias = hoje - dt_vencimento (só para atrasados)
+function calcAtraso(DTVENC, status) {
+  if (!DTVENC || status !== "atrasado") return 0;
+
+  const hoje = new Date();
+  const z = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  const vencZ = z(DTVENC);
+  const hojeZ = z(hoje);
+
+  const diffMs = hojeZ - vencZ;
+  const diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  return diffDias > 0 ? diffDias : 0;
+}
+
+// Mapeamento de campos (f0..f11)
+function mapRowToDb(row) {
+  const get = (i) => row[`f${i}`]?.["$"] ?? null;
+
+  const nufin = get(0) ? Number(get(0)) : null;
+  const dhBaixaStr = get(2);
+  const DTVENCStr = get(3);
+  const dtBaixa = parseDMY(dhBaixaStr);
+  const DTVENC = parseDMY(DTVENCStr);
+
+  let numnota = get(4) || get(7);
+  const valorDesdobra = get(8) ? Number(get(8)) : null;
+
+  const nomeEmpresa = get(9);
+  const nomeParceiro = get(10);
+  const descrNatureza = get(11);
+
+  const ativoContrato = get(12);
+
+  const codemp = get(6) ? Number(get(6)) : null;
+  const codparc = get(5) ? Number(get(5)) : null;
+
+  const status = calcStatus(DTVENC, dtBaixa);
+  const atraso = calcAtraso(DTVENC, status); // 🔹 aqui calculamos o atraso
+
+  return {
+    nufin,
+    nome_empresa: nomeEmpresa,
+    nome_parceiro: nomeParceiro,
+    descr_natureza: descrNatureza,
+    numnota: numnota ? Number(numnota) : null,
+    valor_desdobra: valorDesdobra,
+    dt_vencimento: DTVENC ? DTVENC.toISOString().slice(0, 10) : null,
+    dt_baixa: dtBaixa ? dtBaixa.toISOString() : null,
+    codemp,
+    codparc,
+    status,
+    situacao: null,
+    atraso, // 🔹 novo campo no objeto enviado ao banco
+    ativo_contrato: ativoContrato ?? null,
+  };
+}
+
+// UPSERT
+async function upsertTitulo(client, t) {
+  const sql = `
+    INSERT INTO titulos_financeiro
+      (nufin, nome_empresa, nome_parceiro, descr_natureza, numnota, valor_desdobra,
+       dt_vencimento, dt_baixa, codemp, codparc, status, situacao, atraso, ativo_contrato)
+    VALUES
+      ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+    ON CONFLICT (nufin) DO UPDATE SET
+      nome_empresa      = EXCLUDED.nome_empresa,
+      nome_parceiro     = EXCLUDED.nome_parceiro,
+      descr_natureza    = EXCLUDED.descr_natureza,
+      numnota           = EXCLUDED.numnota,
+      valor_desdobra    = EXCLUDED.valor_desdobra,
+      dt_vencimento     = EXCLUDED.dt_vencimento,
+      dt_baixa          = EXCLUDED.dt_baixa,
+      codemp            = EXCLUDED.codemp,
+      codparc           = EXCLUDED.codparc,
+      status            = EXCLUDED.status,
+      atraso            = EXCLUDED.atraso,
+      situacao          = COALESCE(titulos_financeiro.situacao, EXCLUDED.situacao);
+  `;
+  const params = [
+    t.nufin,
+    t.nome_empresa,
+    t.nome_parceiro,
+    t.descr_natureza,
+    t.numnota,
+    t.valor_desdobra,
+    t.dt_vencimento,
+    t.dt_baixa,
+    t.codemp,
+    t.codparc,
+    t.status,
+    t.situacao,
+    t.atraso,
+    t.ativo_contrato,
+  ];
+  await client.query(sql, params);
+}
+
+// Inserção em lote
+export async function carregarTitulosNoBanco(registros) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    for (const row of registros) {
+      const t = mapRowToDb(row);
+
+      // Regras de filtragem:
+      // - nufin deve existir
+      // - numnota deve ser diferente de 0
+      // - descr_natureza deve começar com 'receita'
+      const descr = (t.descr_natureza || "").toLowerCase().trim();
+      const startsWithReceita = descr.startsWith("receita");
+
+      //contratos ativos
+      const ativo = (t.ativo_contrato || "").toString().trim().toUpperCase();
+
+      if (!t.nufin || !t.numnota || t.numnota === 0 || !startsWithReceita || ativo !== "S") {
+        continue;
+      }
+
+      await upsertTitulo(client, t);
+    }
+
+    await client.query("COMMIT");
+    return { ok: true, count: registros.length };
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
