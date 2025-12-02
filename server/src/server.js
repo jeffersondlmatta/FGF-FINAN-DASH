@@ -14,9 +14,6 @@ import empresas from "./routes/empresas.js";
 import bloqueio from "./routes/bloqueio.js";
 import desbloqueio from "./routes/desbloqueio.js";
 
-
-
-
 const app = express();
 const isProd = process.env.NODE_ENV === "production";
 const PORT = Number(process.env.PORT || 3333);
@@ -28,7 +25,7 @@ app.use(
   })
 );
 
-app.use(express.json()); 
+app.use(express.json());
 
 if (!isProd) app.use(morgan("dev"));
 
@@ -41,8 +38,6 @@ app.use("/api/home", home);
 app.use("/api/empresas", empresas);
 app.use("/api/bloqueio", bloqueio);
 app.use("/api/desbloqueio", desbloqueio);
-
-
 
 // Healthcheck
 app.get("/api/health", (_req, res) =>

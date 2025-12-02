@@ -1,11 +1,22 @@
 import { Router } from "express";
-import { q } from "../db.js";
+import pg from "pg";
+
+const { Pool } = pg;
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
 const router = Router();
 
 /**
  * GET /api/desbloqueio/clientes
- * Lista clientes que estão BLOQUEADOS mas têm título PAGO.
+ *
+ * Lista clientes BLOQUEADOS que:
+ *  - NÃO possuem títulos atrasados
+ *  - POSSUEM pelo menos um título pago
+ *
+ * Ou seja: já podem ser liberados.
  */
 router.get("/clientes", async (req, res) => {
   try {
@@ -14,37 +25,40 @@ router.get("/clientes", async (req, res) => {
     if (!empresa) {
       return res.status(400).json({
         ok: false,
-        message: "Empresa é obrigatória.",
+        message: "Informe o código da empresa (empresa).",
       });
     }
 
-    const p = Number(page);
-    const limit = Number(pageSize);
+    const p = Number(page) || 0;
+    const limit = Number(pageSize) || 100;
     const offset = p * limit;
 
     const sql = `
-      SELECT DISTINCT ON (codparc)
-             codemp,
-             codparc,
-             nome_empresa,
-             nome_parceiro,
-             situacao,
-             status,
-             dt_baixa,
-             dt_vencimento,
-             valor_desdobra,
-             nufin
-        FROM titulos_financeiro
-       WHERE codemp = $1
-         AND situacao ILIKE 'BLOQUEADO'
-         AND dt_baixa IS NOT NULL
-       ORDER BY codparc, dt_baixa DESC
-       LIMIT $2 OFFSET $3
+      SELECT
+        codemp,
+        codparc,
+        nome_parceiro,
+        situacao,
+        MAX(atraso)         AS atraso_max,
+        COUNT(*)            AS qtd_titulos,
+        SUM(valor_desdobra) AS valor_total,
+        SUM(CASE WHEN status = 'atrasado' THEN 1 ELSE 0 END) AS qtd_atrasados,
+        SUM(CASE WHEN status = 'pago'     THEN 1 ELSE 0 END) AS qtd_pagos
+      FROM titulos_financeiro
+      WHERE codemp   = $1
+        AND situacao = 'BLOQUEADO'
+      GROUP BY codemp, codparc, nome_parceiro, situacao
+      HAVING
+        SUM(CASE WHEN status = 'atrasado' THEN 1 ELSE 0 END) = 0
+        AND
+        SUM(CASE WHEN status = 'pago' THEN 1 ELSE 0 END) > 0
+      ORDER BY nome_parceiro
+      LIMIT $2 OFFSET $3;
     `;
 
-    const rows = await q(sql, [empresa, limit, offset]);
+    const { rows } = await pool.query(sql, [empresa, limit, offset]);
 
-    res.json({
+    return res.json({
       ok: true,
       page: p,
       pageSize: limit,
@@ -53,9 +67,9 @@ router.get("/clientes", async (req, res) => {
     });
   } catch (err) {
     console.error("Erro GET /api/desbloqueio/clientes:", err);
-    res.status(500).json({
+    return res.status(500).json({
       ok: false,
-      message: "Erro ao buscar clientes pagos & bloqueados.",
+      message: "Erro ao buscar clientes elegíveis para desbloqueio.",
     });
   }
 });

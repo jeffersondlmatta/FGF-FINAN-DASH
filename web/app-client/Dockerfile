@@ -1,15 +1,16 @@
-# app/Dockerfile
 FROM node:22-alpine
 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install --omit=dev
+RUN npm install
 
 COPY . .
 
-ENV NODE_ENV=production
+ENV NODE_ENV=development
+ENV HOST=0.0.0.0
+ENV PORT=5173
 
-EXPOSE 3333
+EXPOSE 5173
 
-CMD ["npm", "start"]
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]

@@ -115,11 +115,12 @@ router.get("/clientes-para-bloqueio", async (req, res) => {
 
     // Usamos DISTINCT ON (Postgres) para pegar apenas um título por parceiro,
     // escolhendo aquele com MAIOR atraso.
+    // use DISTINCT ON (codparc) na linha 123 
     const sql = `
       SELECT
         t.*
       FROM (
-        SELECT DISTINCT ON (codparc)
+        SELECT 
           *,
           GREATEST(CURRENT_DATE - dt_vencimento, 0) AS dias_atraso
         FROM titulos_financeiro

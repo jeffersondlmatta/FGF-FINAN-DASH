@@ -54,7 +54,11 @@ export function dataSetTodasEmpresas6m() {
             "CODPARC",   // f5
             "CODEMP",    // f6
             "NUMNOTA",   // f7
-            "VLRDESDOB"  // f8
+            "VLRDESDOB",  // f8
+            "CGC_CPF_PARC",   // f9  (NOVO)
+            "DTNEG",          // f10 (NOVO)
+            "CTABCOBAIXA",    // f11 (NOVO)
+            "HISTORICO"       // f12 (NOVO)
           ].join(",")
         }
       },

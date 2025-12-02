@@ -1,4 +1,3 @@
-// server/src/routes/bloqueio.js
 import { Router } from "express";
 import pg from "pg";
 
@@ -9,6 +8,36 @@ const pool = new Pool({
 });
 
 const router = Router();
+
+/**
+ * Função de negócio para atualizar situação de um cliente
+ * - Atualiza APENAS o campo "situacao"
+ * - NÃO altera "status"
+ */
+async function atualizarSituacaoCliente({ codemp, codparc, novaSituacao }) {
+  if (!codemp || !codparc || !novaSituacao) {
+    throw new Error("codemp, codparc e novaSituacao são obrigatórios.");
+  }
+
+  const situacaoUpper = String(novaSituacao).toUpperCase();
+
+  if (!["BLOQUEADO", "LIBERADO"].includes(situacaoUpper)) {
+    throw new Error(
+      "novaSituacao inválida. Use 'BLOQUEADO' ou 'LIBERADO'."
+    );
+  }
+
+  const sql = `
+    UPDATE titulos_financeiro
+       SET situacao = $1
+     WHERE codemp   = $2
+       AND codparc  = $3;
+  `;
+
+  await pool.query(sql, [situacaoUpper, codemp, codparc]);
+
+  return situacaoUpper;
+}
 
 /**
  * GET /api/bloqueio/clientes
@@ -52,7 +81,6 @@ router.get("/clientes", async (req, res) => {
       LIMIT $2 OFFSET $3;
     `;
 
-
     const { rows } = await pool.query(sql, [empresa, limit, offset]);
 
     res.json({
@@ -71,10 +99,64 @@ router.get("/clientes", async (req, res) => {
   }
 });
 
+/**
+ * NOVO PADRÃO
+ * POST /api/bloqueio
+ *
+ * Body:
+ * {
+ *   "codemp": number | string,
+ *   "codparc": number | string,
+ *   "novaSituacao": "BLOQUEADO" | "LIBERADO"
+ * }
+ *
+ * Usado pelo front (toggleBloqueio):
+ * - NÃO mexe em STATUS, só em SITUACAO
+ */
+router.post("/", async (req, res) => {
+  try {
+    const { codemp, codparc, novaSituacao } = req.body;
+
+    if (!codemp || !codparc || !novaSituacao) {
+      return res.status(400).json({
+        ok: false,
+        error: "Informe codemp, codparc e novaSituacao.",
+      });
+    }
+
+    const situacaoFinal = await atualizarSituacaoCliente({
+      codemp,
+      codparc,
+      novaSituacao,
+    });
+
+    return res.json({
+      ok: true,
+      codemp,
+      codparc,
+      situacao: situacaoFinal,
+    });
+  } catch (error) {
+    console.error("Erro POST /api/bloqueio:", error);
+    return res.status(500).json({
+      ok: false,
+      error: error.message || "Erro ao atualizar situação do cliente.",
+    });
+  }
+});
 
 /**
- * PATCH /api/bloqueio/atualizar
- * Atualiza situação (BLOQUEADO / LIBERADO) de um cliente
+ * MODO ANTIGO (mantido por compatibilidade)
+ * PATCH /api/bloqueio/atualizar/:codparc
+ *
+ * Body:
+ * {
+ *   "empresa": number | string,
+ *   "bloquear": true | false
+ * }
+ *
+ * - bloquear = true  -> BLOQUEADO
+ * - bloquear = false -> LIBERADO
  */
 router.patch("/atualizar/:codparc", async (req, res) => {
   try {
@@ -91,21 +173,18 @@ router.patch("/atualizar/:codparc", async (req, res) => {
 
     const novaSituacao = bloquear ? "BLOQUEADO" : "LIBERADO";
 
-    const sql = `
-      UPDATE titulos_financeiro
-         SET situacao = $1
-       WHERE codemp = $2
-         AND codparc = $3;
-    `;
+    const situacaoFinal = await atualizarSituacaoCliente({
+      codemp: empresa,
+      codparc,
+      novaSituacao,
+    });
 
-    await pool.query(sql, [novaSituacao, empresa, codparc]);
-
-    res.json({ ok: true, situacao: novaSituacao });
+    res.json({ ok: true, situacao: situacaoFinal });
   } catch (error) {
     console.error("Erro PATCH /api/bloqueio/atualizar/:codparc:", error);
     res.status(500).json({
       ok: false,
-      error: "Erro ao atualizar situação do cliente.",
+      error: error.message || "Erro ao atualizar situação do cliente.",
     });
   }
 });

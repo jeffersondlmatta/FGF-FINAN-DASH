@@ -16,7 +16,7 @@ function parseDMY(dmy) {
 
 // Calcula status (pago / atrasado / a vencer)
 function calcStatus(DTVENC, dhBaixa) {
-  if (dhBaixa) return "pago";
+  if (dhBaixa) return "Pago";
   if (!DTVENC) return null;
 
   const hoje = new Date();
@@ -25,13 +25,13 @@ function calcStatus(DTVENC, dhBaixa) {
   const vencZ = z(DTVENC);
   const hojeZ = z(hoje);
 
-  if (vencZ < hojeZ) return "atrasado";
+  if (vencZ < hojeZ) return "Atrasado";
   return "a vencer";
 }
 
 // Calcula atraso em dias = hoje - dt_vencimento (só para atrasados)
 function calcAtraso(DTVENC, status) {
-  if (!DTVENC || status !== "atrasado") return 0;
+  if (!DTVENC || status !== "Atrasado") return 0;
 
   const hoje = new Date();
   const z = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -49,26 +49,34 @@ function calcAtraso(DTVENC, status) {
 function mapRowToDb(row) {
   const get = (i) => row[`f${i}`]?.["$"] ?? null;
 
-  const nufin = get(0) ? Number(get(0)) : null;
-  const dhBaixaStr = get(2);
-  const DTVENCStr = get(3);
-  const dtBaixa = parseDMY(dhBaixaStr);
-  const DTVENC = parseDMY(DTVENCStr);
+  // Campos básicos do financeiro
+  const nufin       = get(0) ? Number(get(0)) : null;
+  const dhBaixaStr  = get(2);
+  const dtVencStr   = get(3);
+  const dtBaixa     = parseDMY(dhBaixaStr);
+  const dtVenc      = parseDMY(dtVencStr);
 
-  let numnota = get(4) || get(7);
+  let numnota       = get(4) || get(7);
   const valorDesdobra = get(8) ? Number(get(8)) : null;
 
-  const nomeEmpresa = get(9);
-  const nomeParceiro = get(10);
-  const descrNatureza = get(11);
+  // Novos campos do Financeiro
+  const cgcCpfParc  = get(9);
+  const dtNegStr    = get(10);
+  const dtNeg       = parseDMY(dtNegStr);
+  const ctaBcBaixa  = get(11);
+  const historico   = get(12);
 
-  const ativoContrato = get(12);
+  // Campos relacionados / joins
+  const nomeEmpresa   = get(13); // Empresa.NOMEFANTASIA
+  const nomeParceiro  = get(14); // Parceiro.NOMEPARC
+  const descrNatureza = get(15); // Natureza.DESCRNAT
+  const ativoContrato = get(16); // Contrato.ATIVO
 
   const codemp = get(6) ? Number(get(6)) : null;
   const codparc = get(5) ? Number(get(5)) : null;
 
-  const status = calcStatus(DTVENC, dtBaixa);
-  const atraso = calcAtraso(DTVENC, status); // 🔹 aqui calculamos o atraso
+  const status = calcStatus(dtVenc, dtBaixa);
+  const atraso = calcAtraso(dtVenc, status);
 
   return {
     nufin,
@@ -77,25 +85,33 @@ function mapRowToDb(row) {
     descr_natureza: descrNatureza,
     numnota: numnota ? Number(numnota) : null,
     valor_desdobra: valorDesdobra,
-    dt_vencimento: DTVENC ? DTVENC.toISOString().slice(0, 10) : null,
+    dt_vencimento: dtVenc ? dtVenc.toISOString().slice(0, 10) : null,
     dt_baixa: dtBaixa ? dtBaixa.toISOString() : null,
     codemp,
     codparc,
     status,
     situacao: null,
-    atraso, // 🔹 novo campo no objeto enviado ao banco
+    atraso,
     ativo_contrato: ativoContrato ?? null,
+
+    // Novos campos gravados no banco
+    cgc_cpf_parc: cgcCpfParc ?? null,
+    dt_negociacao: dtNeg ? dtNeg.toISOString().slice(0, 10) : null,
+    ctabco_baixa: ctaBcBaixa ?? null,
+    historico: historico ?? null,
   };
 }
+
 
 // UPSERT
 async function upsertTitulo(client, t) {
   const sql = `
     INSERT INTO titulos_financeiro
       (nufin, nome_empresa, nome_parceiro, descr_natureza, numnota, valor_desdobra,
-       dt_vencimento, dt_baixa, codemp, codparc, status, situacao, atraso, ativo_contrato)
+       dt_vencimento, dt_baixa, codemp, codparc, status, situacao, atraso, ativo_contrato,
+       cgc_cpf_parc, dt_negociacao, ctabco_baixa, historico)
     VALUES
-      ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+      ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
     ON CONFLICT (nufin) DO UPDATE SET
       nome_empresa      = EXCLUDED.nome_empresa,
       nome_parceiro     = EXCLUDED.nome_parceiro,
@@ -108,8 +124,14 @@ async function upsertTitulo(client, t) {
       codparc           = EXCLUDED.codparc,
       status            = EXCLUDED.status,
       atraso            = EXCLUDED.atraso,
+      ativo_contrato    = EXCLUDED.ativo_contrato,
+      cgc_cpf_parc      = EXCLUDED.cgc_cpf_parc,
+      dt_negociacao     = EXCLUDED.dt_negociacao,
+      ctabco_baixa      = EXCLUDED.ctabco_baixa,
+      historico         = EXCLUDED.historico,
       situacao          = COALESCE(titulos_financeiro.situacao, EXCLUDED.situacao);
   `;
+
   const params = [
     t.nufin,
     t.nome_empresa,
@@ -125,9 +147,15 @@ async function upsertTitulo(client, t) {
     t.situacao,
     t.atraso,
     t.ativo_contrato,
+    t.cgc_cpf_parc,
+    t.dt_negociacao,
+    t.ctabco_baixa,
+    t.historico,
   ];
+
   await client.query(sql, params);
 }
+
 
 // Inserção em lote
 export async function carregarTitulosNoBanco(registros) {

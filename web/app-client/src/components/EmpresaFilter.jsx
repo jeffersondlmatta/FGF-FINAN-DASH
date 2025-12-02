@@ -1,46 +1,45 @@
-// src/components/EmpresaFilter.jsx
-
 export function EmpresaFilter({
   empresa,
   onChangeEmpresa,
   onBuscarTitulos,
   onBuscarBloqueio,
-  onBuscarDesbloqueio,  
-  loading,
+  onBuscarDesbloqueio,
+  loading
 }) {
+  const disabled = !empresa || loading;
+
   return (
     <div className="filter-bar">
       <label className="filter-label">
-        Código da empresa:
+        Empresa:
         <input
-          className="filter-input"
-          type="number"
+          type="text"
           value={empresa}
           onChange={(e) => onChangeEmpresa(e.target.value)}
-          placeholder="Ex: 20"
+          placeholder="CODEMP"
         />
       </label>
 
       <button
-        onClick={() => onBuscarTitulos(0)}
         className="btn btn-primary"
-        disabled={loading}
+        onClick={() => onBuscarTitulos()}
+        disabled={disabled}
       >
         Buscar
       </button>
 
       <button
-        onClick={() => onBuscarBloqueio(0)}
         className="btn btn-danger"
-        disabled={loading}
+        onClick={() => onBuscarBloqueio()}
+        disabled={disabled}
       >
-        Passivo de bloqueio 
+        Passivo de bloqueio
       </button>
 
       <button
-        onClick={() => onBuscarDesbloqueio(0)}
         className="btn btn-warning"
-        disabled={loading}
+        onClick={() => onBuscarDesbloqueio()}
+        disabled={disabled}
       >
         Desbloquear Clientes
       </button>

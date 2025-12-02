@@ -14,17 +14,20 @@ export default function App() {
     erro,
     loading,
     updating,
-    modo,          // "titulos" | "bloqueio" | "desbloqueio"
+    modo, // "titulos" | "bloqueio" | "desbloqueio"
     hasMore,
     pageSize,
     carregarTitulos,
     buscarParaBloqueio,
     buscarPagosBloqueados,
     carregarMais,
-    toggleBloqueio,
+    toggleBloqueio, // recebe o OBJETO título
   } = useTitulosFinanceiro();
 
   const [showToTop, setShowToTop] = useState(false);
+
+  // guarda os codparc selecionados
+  const [selectedCodparcs, setSelectedCodparcs] = useState([]);
 
   const handleExportarExcel = () => {
     if (modo !== "bloqueio" && modo !== "desbloqueio") {
@@ -41,6 +44,73 @@ export default function App() {
 
     exportClientesParaExcel(titulos);
   };
+
+  // aplica bloqueio/desbloqueio em lote
+  const handleAplicarSituacaoLote = async () => {
+    if (!selectedCodparcs.length) {
+      alert("Selecione pelo menos um cliente para aplicar a ação.");
+      return;
+    }
+
+    const acao = modo === "bloqueio" ? "bloquear" : "desbloquear";
+
+    const ok = window.confirm(
+      `Confirma ${acao} ${selectedCodparcs.length} cliente(s) selecionado(s)?`
+    );
+    if (!ok) return;
+
+    // pega 1 título representativo por cliente (codparc)
+    const mapaClientes = new Map();
+    for (const t of titulos) {
+      if (!t.codparc || !t.codemp) continue;
+      if (!selectedCodparcs.includes(t.codparc)) continue;
+      if (!mapaClientes.has(t.codparc)) {
+        mapaClientes.set(t.codparc, t);
+      }
+    }
+
+    for (const t of mapaClientes.values()) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await toggleBloqueio(t); // mesma função que já existia no botão antigo
+      } catch (e) {
+        console.error("Falha ao aplicar situação para registro:", t, e);
+      }
+    }
+
+    setSelectedCodparcs([]);
+  };
+
+  // toggle de seleção por codparc
+  const handleToggleSelect = (codparc) => {
+    if (!codparc) return;
+    setSelectedCodparcs((prev) =>
+      prev.includes(codparc)
+        ? prev.filter((c) => c !== codparc)
+        : [...prev, codparc]
+    );
+  };
+
+  // selecionar / limpar todos (clientes únicos)
+  const handleToggleSelectAll = (alreadyAllSelected) => {
+    if (alreadyAllSelected) {
+      setSelectedCodparcs([]);
+    } else {
+      const ids = Array.from(
+        new Set(
+          titulos
+            .filter((t) => t.codparc)
+            .map((t) => t.codparc)
+        )
+      );
+      setSelectedCodparcs(ids);
+    }
+  };
+
+  // sempre que mudar o modo ou a lista de títulos, zera a seleção
+  useEffect(() => {
+    setSelectedCodparcs([]);
+  }, [modo, titulos]);
 
   // Scroll infinito + botão "voltar ao topo"
   useEffect(() => {
@@ -77,19 +147,33 @@ export default function App() {
         loading={loading}
       />
 
-      {/* Ações gerais (exportar, contagem) */}
+      {/* Ações gerais (bloqueio em lote, exportar, contagem) */}
       {titulos.length > 0 && (
         <div className="actions-bar">
           {(modo === "bloqueio" || modo === "desbloqueio") && (
-            <button
-              className="btn btn-outline"
-              onClick={handleExportarExcel}
-              disabled={loading || titulos.length === 0}
-            >
-              {modo === "bloqueio"
-                ? "Exportar Excel (clientes para bloqueio)"
-                : "Exportar Excel (pagos & bloqueados)"}
-            </button>
+            <>
+              <button
+                className="btn btn-danger"
+                onClick={handleAplicarSituacaoLote}
+                disabled={
+                  loading || updating || selectedCodparcs.length === 0
+                }
+              >
+                {modo === "bloqueio"
+                  ? "Bloquear selecionados"
+                  : "Desbloquear selecionados"}
+              </button>
+
+              <button
+                className="btn btn-outline"
+                onClick={handleExportarExcel}
+                disabled={loading || titulos.length === 0}
+              >
+                {modo === "bloqueio"
+                  ? "Exportar Excel (clientes para bloqueio)"
+                  : "Exportar Excel (pagos & bloqueados)"}
+              </button>
+            </>
           )}
 
           <span className="pagination-info">
@@ -109,7 +193,10 @@ export default function App() {
       <TitulosTable
         titulos={titulos}
         updating={updating}
-        onToggleBloqueio={toggleBloqueio}
+        modo={modo}
+        selectedCodparcs={selectedCodparcs}
+        onToggleSelect={handleToggleSelect}
+        onToggleSelectAll={handleToggleSelectAll}
       />
 
       {!loading && titulos.length > 0 && (
