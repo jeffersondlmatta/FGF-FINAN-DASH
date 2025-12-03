@@ -24,12 +24,10 @@ export default function App() {
     buscarParaBloqueio,
     buscarPagosBloqueados,
     carregarMais,
-    toggleBloqueio,
-    aplicarLote, // <<<<<< IMPORTADO
+    aplicarLote,
   } = useTitulosFinanceiro();
 
   const [selectedCodparcs, setSelectedCodparcs] = useState([]);
-  const [showToTop, setShowToTop] = useState(false);
 
   const handleToggleSelect = (codparc) => {
     setSelectedCodparcs((prev) =>
@@ -40,11 +38,9 @@ export default function App() {
   };
 
   const handleToggleSelectAll = () => {
-    const ids = Array.from(
-      new Set(titulos.filter((t) => t.codparc).map((t) => t.codparc))
-    );
+    const ids = Array.from(new Set(titulos.map((t) => t.codparc)));
     setSelectedCodparcs(
-      ids.length === selectedCodparcs.length ? [] : ids
+      selectedCodparcs.length === ids.length ? [] : ids
     );
   };
 
@@ -59,7 +55,7 @@ export default function App() {
 
   return (
     <div className="app-container">
-      <h1 className="app-title">FGF - Financeiro</h1>
+      <h1 className="app-title">FGF - FINANCEIRO</h1>
 
       <EmpresaFilter
         negocio={negocio}
@@ -81,7 +77,9 @@ export default function App() {
                 disabled={selectedCodparcs.length === 0 || updating}
                 onClick={() => aplicarLote(selectedCodparcs)}
               >
-                Aplicar Bloqueio/Desbloqueio (em lote)
+                {modo === "bloqueio"
+                  ? "Aplicar Bloqueio (em lote)"
+                  : "Desbloquear (em lote)"}
               </button>
 
               <button
@@ -98,6 +96,9 @@ export default function App() {
           </span>
         </div>
       )}
+
+      {erro && <p className="msg msg-error">{erro}</p>}
+      {loading && <p className="msg">Carregando…</p>}
 
       <TitulosTable
         titulos={titulos}

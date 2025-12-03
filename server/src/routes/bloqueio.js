@@ -1,117 +1,10 @@
 import { Router } from "express";
-import pg from "pg";
-
-const { Pool } = pg;
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+import { q } from "../db.js";
 
 const router = Router();
 
 /**
- * Função de negócio para atualizar situação de um cliente
- * - Atualiza APENAS o campo "situacao"
- * - NÃO altera "status"
- */
-async function atualizarSituacaoCliente({ codemp, codparc, novaSituacao }) {
-  if (!codemp || !codparc || !novaSituacao) {
-    throw new Error("codemp, codparc e novaSituacao são obrigatórios.");
-  }
-
-  const situacaoUpper = String(novaSituacao).toUpperCase();
-
-  if (!["BLOQUEADO", "LIBERADO"].includes(situacaoUpper)) {
-    throw new Error(
-      "novaSituacao inválida. Use 'BLOQUEADO' ou 'LIBERADO'."
-    );
-  }
-
-  const sql = `
-    UPDATE titulos_financeiro
-       SET situacao = $1
-     WHERE codemp   = $2
-       AND codparc  = $3;
-  `;
-
-  await pool.query(sql, [situacaoUpper, codemp, codparc]);
-
-  return situacaoUpper;
-}
-
-/**
- * GET /api/bloqueio/clientes
- * Lista clientes elegíveis para bloqueio
- * - status = atrasado
- * - situacao = LIBERADO
- * - agrupado por cliente
- * - MAX(atraso)
- * - ordenado por nome_parceiro
- */
-router.get("/clientes", async (req, res) => {
-  try {
-    const { empresa, page = 0, pageSize = 100 } = req.query;
-
-    if (!empresa) {
-      return res.status(400).json({
-        ok: false,
-        error: "Informe o código da empresa (empresa).",
-      });
-    }
-
-    const p = Number(page) || 0;
-    const limit = Number(pageSize) || 100;
-    const offset = p * limit;
-
-    const sql = `
-      SELECT
-        codemp,
-        codparc,
-        nome_parceiro,
-        situacao,
-        MAX(atraso)         AS atraso,
-        COUNT(*)            AS qtd_titulos,
-        SUM(valor_desdobra) AS valor_total
-      FROM titulos_financeiro
-      WHERE codemp   = $1
-        AND status   = 'atrasado'
-        AND situacao = 'LIBERADO'
-      GROUP BY codemp, codparc, nome_parceiro, situacao
-      ORDER BY nome_parceiro
-      LIMIT $2 OFFSET $3;
-    `;
-
-    const { rows } = await pool.query(sql, [empresa, limit, offset]);
-
-    res.json({
-      ok: true,
-      page: p,
-      pageSize: limit,
-      count: rows.length,
-      data: rows,
-    });
-  } catch (error) {
-    console.error("Erro GET /api/bloqueio/clientes:", error);
-    res.status(500).json({
-      ok: false,
-      error: "Erro ao buscar clientes para bloqueio.",
-    });
-  }
-});
-
-/**
- * NOVO PADRÃO
- * POST /api/bloqueio
- *
- * Body:
- * {
- *   "codemp": number | string,
- *   "codparc": number | string,
- *   "novaSituacao": "BLOQUEADO" | "LIBERADO"
- * }
- *
- * Usado pelo front (toggleBloqueio):
- * - NÃO mexe em STATUS, só em SITUACAO
+ * BLOQUEIO INDIVIDUAL
  */
 router.post("/", async (req, res) => {
   try {
@@ -120,71 +13,84 @@ router.post("/", async (req, res) => {
     if (!codemp || !codparc || !novaSituacao) {
       return res.status(400).json({
         ok: false,
-        error: "Informe codemp, codparc e novaSituacao.",
+        message: "Parâmetros inválidos.",
       });
     }
 
-    const situacaoFinal = await atualizarSituacaoCliente({
-      codemp,
-      codparc,
-      novaSituacao,
-    });
+    await q(
+      `
+      UPDATE titulos_financeiro
+         SET situacao = $3
+       WHERE codemp = $1
+         AND codparc = $2
+      `,
+      [Number(codemp), Number(codparc), novaSituacao.toUpperCase()]
+    );
 
     return res.json({
       ok: true,
-      codemp,
-      codparc,
-      situacao: situacaoFinal,
+      message: "Situação atualizada.",
     });
-  } catch (error) {
-    console.error("Erro POST /api/bloqueio:", error);
+  } catch (err) {
+    console.error("Erro POST /api/bloqueio:", err);
     return res.status(500).json({
       ok: false,
-      error: error.message || "Erro ao atualizar situação do cliente.",
+      message: "Erro ao aplicar bloqueio.",
     });
   }
 });
 
-/**
- * MODO ANTIGO (mantido por compatibilidade)
- * PATCH /api/bloqueio/atualizar/:codparc
- *
- * Body:
- * {
- *   "empresa": number | string,
- *   "bloquear": true | false
- * }
- *
- * - bloquear = true  -> BLOQUEADO
- * - bloquear = false -> LIBERADO
- */
-router.patch("/atualizar/:codparc", async (req, res) => {
-  try {
-    const { codparc } = req.params;
-    const { empresa, bloquear } = req.body;
 
-    if (!empresa || !codparc || typeof bloquear === "undefined") {
+/**
+ * BLOQUEIO OU DESBLOQUEIO EM LOTE
+ *
+ * FRONT SEMPRE USA:
+ * POST /api/bloqueio/lote
+ *
+ * novaSituacao enviada pelo front:
+ *  - modo bloqueio     => BLOQUEADO
+ *  - modo desbloqueio  => ATIVO
+ */
+router.post("/lote", async (req, res) => {
+  try {
+    const { clientes } = req.body;
+
+    if (!clientes || !Array.isArray(clientes) || clientes.length === 0) {
       return res.status(400).json({
         ok: false,
-        error:
-          "Informe empresa, codparc e bloquear (true/false).",
+        message: "Nenhum cliente informado.",
       });
     }
 
-    const novaSituacao = bloquear ? "BLOQUEADO" : "LIBERADO";
+    for (const c of clientes) {
+      if (!c.codparc || !c.codemp || !c.novaSituacao) continue;
 
-    const situacaoFinal = await atualizarSituacaoCliente({
-      codemp: empresa,
-      codparc,
-      novaSituacao,
+      await q(
+        `
+        UPDATE titulos_financeiro
+           SET situacao = $3
+         WHERE codparc = $1
+           AND codemp = $2
+        `,
+        [
+          Number(c.codparc),
+          Number(c.codemp),
+          c.novaSituacao.toUpperCase(),
+        ]
+      );
+    }
+
+    return res.json({
+      ok: true,
+      count: clientes.length,
+      message: "Operação aplicada com sucesso.",
     });
 
-    res.json({ ok: true, situacao: situacaoFinal });
-  } catch (error) {
-    console.error("Erro PATCH /api/bloqueio/atualizar/:codparc:", error);
-    res.status(500).json({
+  } catch (err) {
+    console.error("Erro POST /api/bloqueio/lote:", err);
+    return res.status(500).json({
       ok: false,
-      error: error.message || "Erro ao atualizar situação do cliente.",
+      message: "Erro ao aplicar operação em lote.",
     });
   }
 });
