@@ -29,7 +29,7 @@ function calcStatus(DTVENC, dhBaixa) {
   return "a vencer";
 }
 
-// Calcula atraso em dias = hoje - dt_vencimento (só para atrasados)
+// Calcula atraso
 function calcAtraso(DTVENC, status) {
   if (!DTVENC || status !== "Atrasado") return 0;
 
@@ -45,38 +45,65 @@ function calcAtraso(DTVENC, status) {
   return diffDias > 0 ? diffDias : 0;
 }
 
-// Mapeamento de campos (f0..f11)
+// Mapeamento de NEGÓCIO
+function getNegocio(codemp) {
+  if (codemp === 20) return "Gob";
+  if ([18, 17, 14, 9, 13].includes(codemp)) return "Contabilidade";
+  if ([15, 8, 1].includes(codemp)) return "Revisão";
+  if (codemp === 16) return "Jurídico";
+  if (codemp === 3) return "RH";
+  return null;
+}
+
+// LISTA OFICIAL DE NATUREZAS PERMITIDAS
+const naturezasReceita = [
+  "receita de contabilidade retroativa",
+  "receita de contabilidade",
+  "receita servicos avulsos contabil",
+  "servicos avulsos contabilidade",
+  "servicos avulsos departamento pessoal",
+  "servicos avulsos legalizacao",
+  "receita manut revisao fiscal",
+  "receita portal revisao fiscal",
+  "receita revisao fiscal",
+  "receita servico calculo st fiscal",
+  "receita gob cfiscal",
+  "receita gob implantacao",
+  "receita gob perdcomp",
+  "receita gob retroativo",
+];
+
+// Mapeamento
 function mapRowToDb(row) {
   const get = (i) => row[`f${i}`]?.["$"] ?? null;
 
-  // Campos básicos do financeiro
   const nufin       = get(0) ? Number(get(0)) : null;
   const dhBaixaStr  = get(2);
   const dtVencStr   = get(3);
+
   const dtBaixa     = parseDMY(dhBaixaStr);
   const dtVenc      = parseDMY(dtVencStr);
 
   let numnota       = get(4) || get(7);
   const valorDesdobra = get(8) ? Number(get(8)) : null;
 
-  // Novos campos do Financeiro
   const cgcCpfParc  = get(9);
   const dtNegStr    = get(10);
   const dtNeg       = parseDMY(dtNegStr);
   const ctaBcBaixa  = get(11);
   const historico   = get(12);
 
-  // Campos relacionados / joins
-  const nomeEmpresa   = get(13); // Empresa.NOMEFANTASIA
-  const nomeParceiro  = get(14); // Parceiro.NOMEPARC
-  const descrNatureza = get(15); // Natureza.DESCRNAT
-  const ativoContrato = get(16); // Contrato.ATIVO
+  const nomeEmpresa   = get(13);
+  const nomeParceiro  = get(14);
+  const descrNatureza = get(15);
+  const ativoContrato = get(16);
 
   const codemp = get(6) ? Number(get(6)) : null;
   const codparc = get(5) ? Number(get(5)) : null;
 
   const status = calcStatus(dtVenc, dtBaixa);
   const atraso = calcAtraso(dtVenc, status);
+  const negocio = getNegocio(codemp);
 
   return {
     nufin,
@@ -94,14 +121,13 @@ function mapRowToDb(row) {
     atraso,
     ativo_contrato: ativoContrato ?? null,
 
-    // Novos campos gravados no banco
     cgc_cpf_parc: cgcCpfParc ?? null,
     dt_negociacao: dtNeg ? dtNeg.toISOString().slice(0, 10) : null,
     ctabco_baixa: ctaBcBaixa ?? null,
     historico: historico ?? null,
+    negocio,
   };
 }
-
 
 // UPSERT
 async function upsertTitulo(client, t) {
@@ -109,9 +135,9 @@ async function upsertTitulo(client, t) {
     INSERT INTO titulos_financeiro
       (nufin, nome_empresa, nome_parceiro, descr_natureza, numnota, valor_desdobra,
        dt_vencimento, dt_baixa, codemp, codparc, status, situacao, atraso, ativo_contrato,
-       cgc_cpf_parc, dt_negociacao, ctabco_baixa, historico)
+       cgc_cpf_parc, dt_negociacao, ctabco_baixa, historico, negocio)
     VALUES
-      ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+      ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
     ON CONFLICT (nufin) DO UPDATE SET
       nome_empresa      = EXCLUDED.nome_empresa,
       nome_parceiro     = EXCLUDED.nome_parceiro,
@@ -129,6 +155,7 @@ async function upsertTitulo(client, t) {
       dt_negociacao     = EXCLUDED.dt_negociacao,
       ctabco_baixa      = EXCLUDED.ctabco_baixa,
       historico         = EXCLUDED.historico,
+      negocio           = EXCLUDED.negocio,
       situacao          = COALESCE(titulos_financeiro.situacao, EXCLUDED.situacao);
   `;
 
@@ -151,13 +178,13 @@ async function upsertTitulo(client, t) {
     t.dt_negociacao,
     t.ctabco_baixa,
     t.historico,
+    t.negocio
   ];
 
   await client.query(sql, params);
 }
 
-
-// Inserção em lote
+// LOTE
 export async function carregarTitulosNoBanco(registros) {
   const client = await pool.connect();
   try {
@@ -166,17 +193,12 @@ export async function carregarTitulosNoBanco(registros) {
     for (const row of registros) {
       const t = mapRowToDb(row);
 
-      // Regras de filtragem:
-      // - nufin deve existir
-      // - numnota deve ser diferente de 0
-      // - descr_natureza deve começar com 'receita'
       const descr = (t.descr_natureza || "").toLowerCase().trim();
-      const startsWithReceita = descr.startsWith("receita");
+      const naturezaValida = naturezasReceita.includes(descr);
 
-      //contratos ativos
       const ativo = (t.ativo_contrato || "").toString().trim().toUpperCase();
 
-      if (!t.nufin || !t.numnota || t.numnota === 0 || !startsWithReceita || ativo !== "S") {
+      if (!t.nufin || !t.numnota || t.numnota === 0 || !naturezaValida || ativo !== "S") {
         continue;
       }
 

@@ -97,67 +97,118 @@ router.get("/titulos", async (req, res) => {
  *  - atrasoMin (opcional, default 20)
  *  - page, pageSize
  */
+// GET /api/home/clientes-para-bloqueio
 router.get("/clientes-para-bloqueio", async (req, res) => {
   try {
-    const { empresa } = req.query;
-    if (!empresa) {
-      return res
-        .status(400)
-        .json({ ok: false, message: "Parâmetro 'empresa' é obrigatório." });
+    const { empresa, negocio, page = 0, pageSize = 100, atrasoMin = 20 } = req.query;
+
+    if (!negocio) {
+      return res.status(400).json({ ok: false, message: "Selecione um negócio." });
     }
 
-    const atrasoMin = Number(req.query.atrasoMin ?? 20);
-    const page = Number(req.query.page ?? 0);
-    const pageSize = Math.min(Number(req.query.pageSize ?? 100), 500);
+    const limit = Number(pageSize);
+    const offset = Number(page) * limit;
 
-    const params = [];
-    let i = 1;
+    const naturezasRecorrentes = [
+      "receita de contabilidade",
+      "receita manut revisao fiscal",
+      "receita portal revisao fiscal",
+      "receita gob perdcomp",
+      "receita gob cfiscal",
+    ];
 
-    // Usamos DISTINCT ON (Postgres) para pegar apenas um título por parceiro,
-    // escolhendo aquele com MAIOR atraso.
-    // use DISTINCT ON (codparc) na linha 123 
-    const sql = `
-      SELECT
-        t.*
-      FROM (
-        SELECT 
+    // 1) Pega todos os títulos do negócio com atraso e naturezas válidas
+    let sql = `
+      WITH lista AS (
+        SELECT
           *,
-          GREATEST(CURRENT_DATE - dt_vencimento, 0) AS dias_atraso
+          ROW_NUMBER() OVER (PARTITION BY codparc ORDER BY atraso DESC) AS rn
         FROM titulos_financeiro
-        WHERE codemp = $${i++}
-          AND dt_baixa IS NULL
-          AND dt_vencimento < CURRENT_DATE
-          AND (
-            situacao IS NULL
-            OR situacao ILIKE 'LIBERADO'
-            OR situacao ILIKE 'ATIVO'
-          )
-        ORDER BY codparc, dt_vencimento ASC  -- mais antigo = maior atraso
-      ) AS t
-      WHERE t.dias_atraso >= $${i++}
-      ORDER BY t.nome_parceiro ASC
-      LIMIT $${i++} OFFSET $${i++}
+        WHERE negocio = $1
+          AND atraso >= $2
+          AND status = 'Atrasado'
+          AND (situacao IS NULL OR situacao ILIKE 'ATIVO' OR situacao ILIKE 'LIBERADO')
+          AND LOWER(descr_natureza) = ANY($3)
     `;
 
-    params.push(Number(empresa), atrasoMin, pageSize, page * pageSize);
+    const params = [negocio, atrasoMin, naturezasRecorrentes];
+
+    // 2) Empresa é opcional
+    if (empresa) {
+      sql += ` AND codemp = $4 `;
+      params.push(empresa);
+    }
+
+    sql += `
+      ),
+      selecionado AS (
+        SELECT *
+        FROM lista
+        WHERE rn = 1  -- pega o título mais atrasado
+      )
+      SELECT
+        codemp,
+        nome_empresa,
+        codparc,
+        nome_parceiro,
+        descr_natureza,
+        nufin,
+        valor_desdobra,
+        dt_vencimento,
+        dt_baixa,
+        status,
+        atraso,
+        historico,
+        situacao,
+        negocio
+      FROM selecionado
+      ORDER BY nome_parceiro
+      LIMIT ${limit} OFFSET ${offset};
+    `;
 
     const rows = await q(sql, params);
 
-    res.json({
+    return res.json({
       ok: true,
-      page,
-      pageSize,
-      count: rows.length,
       data: rows,
+      page: Number(page),
+      pageSize: limit,
     });
+
   } catch (err) {
-    console.error("Erro GET /api/home/clientes-para-bloqueio:", err);
-    res.status(500).json({
-      ok: false,
-      message: "Erro ao buscar clientes para bloqueio.",
-    });
+    console.error("Erro clientes-para-bloqueio:", err);
+    return res.status(500).json({ ok: false, message: "Erro interno" });
   }
 });
+
+
+
+// GET /api/home/empresas-por-negocio
+// GET /api/home/empresas-por-negocio
+router.get("/empresas-por-negocio", async (req, res) => {
+  try {
+    const { negocio } = req.query;
+
+    const sql = `
+      SELECT DISTINCT codemp, nome_empresa
+      FROM titulos_financeiro
+      WHERE negocio = $1
+      ORDER BY codemp;
+    `;
+
+    const rows = await q(sql, [negocio]);
+
+    res.json({ ok: true, data: rows });
+
+  } catch (err) {
+    console.error("Erro empresas-por-negocio:", err);
+    res.status(500).json({ ok: false });
+  }
+});
+
+
+
+
 
 /**
  * PATCH /api/home/clientes/:codparc/bloqueio
