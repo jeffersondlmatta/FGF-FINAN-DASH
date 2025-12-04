@@ -2,57 +2,50 @@ version: "3.9"
 
 services:
   db:
-    build: ./db
-    container_name: dash_db
+    image: postgres:15
+    container_name: financeiro_db
     restart: always
     environment:
+      POSTGRES_DB: financeiro
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: root
-      POSTGRES_DB: dash_financeiro
+    volumes:
+      - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-    volumes:
-      - db_data:/var/lib/postgresql/data
 
-  etl:
-    build: ./etl-snk
-    container_name: dash_etl
-    restart: "no"          # roda e termina; se quiser loop, a gente muda
-    depends_on:
-      - db
-    environment:
-      DATABASE_URL: postgres://postgres:root@db:5432/dash_financeiro
-      NODE_ENV: production
-      SNK_CLIENT_ID: ${SNK_CLIENT_ID}
-      SNK_CLIENT_SECRET: ${SNK_CLIENT_SECRET}
-      SNK_X_TOKEN: ${SNK_X_TOKEN}
-    command: ["node", "src/index.js"]
-
-  api:
+  server:
     build: ./server
-    container_name: dash_api
+    container_name: financeiro_api
     restart: always
     depends_on:
       - db
+    env_file:
+      - .env.prod
     environment:
-      DATABASE_URL: postgres://postgres:root@db:5432/dash_financeiro
       NODE_ENV: production
       PORT: 3333
+      CORS_ORIGIN: "*"
     ports:
       - "3333:3333"
 
-  web:
-    build: ./web/app-client
-    container_name: dash_web
+  etl:
+    build: ./etl-snk
+    container_name: financeiro_etl
     restart: always
     depends_on:
-      - api
+      - db
+    env_file:
+      - .env.prod
     environment:
-      # URL que o front usa pra falar com o backend
-      VITE_API_URL: http://localhost:3333
-      NODE_ENV: development
+      NODE_ENV: production
+
+  web:
+    build: ./web
+    container_name: financeiro_front
+    restart: always
     ports:
-      - "5173:5173"
+      - "8080:80"
 
 volumes:
-  db_data:
+  pgdata:

@@ -1,7 +1,0 @@
-FROM postgres:16-alpine
-
-ENV POSTGRES_USER=postgres
-ENV POSTGRES_PASSWORD=root
-ENV POSTGRES_DB=dash_financeiro
-
-EXPOSE 5432
