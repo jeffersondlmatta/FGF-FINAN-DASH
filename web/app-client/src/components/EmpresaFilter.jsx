@@ -7,6 +7,7 @@ export function EmpresaFilter({
   onBuscarBloqueio,
   onBuscarDesbloqueio,
   onBuscarNegativacao,
+  onBuscarRemoverRestricao,  // NOVO
   loading
 }) {
   const disabledAcoes = loading || !negocio;
@@ -14,9 +15,13 @@ export function EmpresaFilter({
   return (
     <div className="filter-bar">
 
+      {/* SELEÇÃO DE NEGÓCIO */}
       <label className="filter-label">
         Negócio:
-        <select value={negocio} onChange={(e) => onChangeNegocio(e.target.value)}>
+        <select
+          value={negocio}
+          onChange={(e) => onChangeNegocio(e.target.value)}
+        >
           <option value="">Selecione...</option>
           <option value="Gob">Gob</option>
           <option value="Contabilidade">Contabilidade</option>
@@ -26,6 +31,7 @@ export function EmpresaFilter({
         </select>
       </label>
 
+      {/* SELEÇÃO DE EMPRESA */}
       <label className="filter-label">
         Empresa:
         <select
@@ -42,28 +48,40 @@ export function EmpresaFilter({
         </select>
       </label>
 
+      {/* PASSIVO DE BLOQUEIO */}
       <button
         className="btn btn-danger"
-        onClick={() => onBuscarBloqueio()}
         disabled={disabledAcoes}
+        onClick={() => onBuscarBloqueio()}
       >
         Passivo de bloqueio
       </button>
 
+      {/* DESBLOQUEIO */}
       <button
         className="btn btn-warning"
-        onClick={() => onBuscarDesbloqueio()}
         disabled={disabledAcoes}
+        onClick={() => onBuscarDesbloqueio()}
       >
         Desbloquear Clientes
       </button>
 
+      {/* NEGATIVAÇÃO */}
       <button
         className="btn btn-dark"
-        onClick={() => onBuscarNegativacao()}
         disabled={disabledAcoes}
+        onClick={() => onBuscarNegativacao()}
       >
         Negativar Clientes
+      </button>
+
+      {/* REMOVER RESTRIÇÃO → NOVO */}
+      <button
+        className="btn btn-success"
+        disabled={disabledAcoes}
+        onClick={() => onBuscarRemoverRestricao()}
+      >
+        Remover Restrição
       </button>
 
     </div>

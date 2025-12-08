@@ -14,11 +14,14 @@ export function useTitulosFinanceiro() {
   const [page, setPage] = useState(0);
   const pageSize = 100;
 
-  const [modo, setModo] = useState("idle");
+  const [modo, setModo] = useState("idle"); 
   const [hasMore, setHasMore] = useState(false);
 
   const limparErro = () => setErro(null);
 
+  // ---------------------------------------------------------------------------
+  // CARREGAR EMPRESAS QUANDO SELECIONAR NEGÓCIO
+  // ---------------------------------------------------------------------------
   const carregarEmpresasDoNegocio = useCallback(async (_negocio) => {
     try {
       if (!_negocio) {
@@ -26,11 +29,12 @@ export function useTitulosFinanceiro() {
         setEmpresa("");
         return;
       }
+
       const resp = await api.get("/api/home/empresas-por-negocio", {
         params: { negocio: _negocio },
       });
-      const lista = resp.data?.data ?? [];
-      setEmpresasDoNegocio(lista);
+
+      setEmpresasDoNegocio(resp.data?.data ?? []);
       setEmpresa("");
     } catch {
       setErro("Erro ao carregar empresas do negócio.");
@@ -42,13 +46,14 @@ export function useTitulosFinanceiro() {
     await carregarEmpresasDoNegocio(value);
   };
 
+  // ---------------------------------------------------------------------------
+  // MODO: PASSIVO DE BLOQUEIO
+  // ---------------------------------------------------------------------------
   const buscarParaBloqueio = useCallback(async () => {
     try {
       limparErro();
-      if (!negocio) {
-        setErro("Selecione o negócio.");
-        return;
-      }
+      if (!negocio) return setErro("Selecione o negócio.");
+
       setLoading(true);
       setModo("bloqueio");
       setPage(0);
@@ -60,16 +65,21 @@ export function useTitulosFinanceiro() {
       const lista = resp.data?.data ?? [];
       setTitulos(lista);
       setHasMore(lista.length === pageSize);
+
     } catch {
       setErro("Erro ao buscar passivo de bloqueio.");
     } finally {
       setLoading(false);
     }
-  }, [empresa, negocio, pageSize]);
+  }, [empresa, negocio]);
 
+  // ---------------------------------------------------------------------------
+  // MODO: DESBLOQUEIO
+  // ---------------------------------------------------------------------------
   const buscarPagosBloqueados = useCallback(async () => {
     try {
       limparErro();
+
       setLoading(true);
       setModo("desbloqueio");
       setPage(0);
@@ -81,20 +91,22 @@ export function useTitulosFinanceiro() {
       const lista = resp.data?.data ?? [];
       setTitulos(lista);
       setHasMore(lista.length === pageSize);
+
     } catch {
       setErro("Erro ao buscar desbloqueio.");
     } finally {
       setLoading(false);
     }
-  }, [empresa, pageSize]);
+  }, [empresa]);
 
+  // ---------------------------------------------------------------------------
+  // MODO: NEGATIVAÇÃO
+  // ---------------------------------------------------------------------------
   const buscarParaNegativar = useCallback(async () => {
     try {
       limparErro();
-      if (!negocio) {
-        setErro("Selecione o negócio.");
-        return;
-      }
+      if (!negocio) return setErro("Selecione o negócio.");
+
       setLoading(true);
       setModo("negativacao");
       setPage(0);
@@ -106,13 +118,45 @@ export function useTitulosFinanceiro() {
       const lista = resp.data?.data ?? [];
       setTitulos(lista);
       setHasMore(lista.length === pageSize);
+
     } catch {
       setErro("Erro ao buscar clientes para negativação.");
     } finally {
       setLoading(false);
     }
-  }, [empresa, negocio, pageSize]);
+  }, [empresa, negocio]);
 
+  // ---------------------------------------------------------------------------
+  // MODO: REMOVER RESTRIÇÃO (DESNEGATIVAR)
+  // ---------------------------------------------------------------------------
+  const buscarParaRemoverRestricao = useCallback(async () => {
+    try {
+      limparErro();
+      if (!negocio) return setErro("Selecione o negócio.");
+
+      setLoading(true);
+      setModo("removerRestricao");
+      setPage(0);
+
+      const resp = await api.get("/api/negativacao/remover", {
+        params: { empresa, negocio, page: 0, pageSize },
+      });
+
+      const lista = resp.data?.data ?? [];
+      setTitulos(lista);
+      setHasMore(lista.length === pageSize);
+
+    } catch (err) {
+      console.error(err);
+      setErro("Erro ao buscar remoção de restrição.");
+    } finally {
+      setLoading(false);
+    }
+  }, [empresa, negocio]);
+
+  // ---------------------------------------------------------------------------
+  // PAGINAÇÃO "CARREGAR MAIS"
+  // ---------------------------------------------------------------------------
   const carregarMais = useCallback(async () => {
     if (!hasMore || loading) return;
 
@@ -122,103 +166,144 @@ export function useTitulosFinanceiro() {
       setLoading(true);
 
       let resp;
+
       if (modo === "bloqueio") {
         resp = await api.get("/api/home/clientes-para-bloqueio", {
           params: { empresa, negocio, page: next, pageSize, atrasoMin: 20 },
         });
-      } else if (modo === "desbloqueio") {
+      }
+
+      else if (modo === "desbloqueio") {
         resp = await api.get("/api/desbloqueio/clientes", {
           params: { empresa, page: next, pageSize },
         });
-      } else if (modo === "negativacao") {
+      }
+
+      else if (modo === "negativacao") {
         resp = await api.get("/api/negativacao/clientes", {
           params: { empresa, negocio, page: next, pageSize },
         });
       }
 
-      const lista = resp?.data?.data ?? [];
-
-      if (!lista.length) {
-        setHasMore(false);
-        return;
+      else if (modo === "removerRestricao") {
+        resp = await api.get("/api/negativacao/remover", {
+          params: { empresa, negocio, page: next, pageSize },
+        });
       }
+
+      const lista = resp?.data?.data ?? [];
+      if (!lista.length) return setHasMore(false);
 
       setTitulos((prev) => [...prev, ...lista]);
       setPage(next);
       setHasMore(lista.length === pageSize);
+
     } catch {
       setErro("Erro ao carregar mais registros.");
     } finally {
       setLoading(false);
     }
-  }, [empresa, negocio, modo, page, pageSize, loading, hasMore]);
+  }, [hasMore, loading, modo, empresa, negocio, page]);
 
+  // ---------------------------------------------------------------------------
+  // LOTE: BLOQUEIO / DESBLOQUEIO
+  // ---------------------------------------------------------------------------
   async function aplicarLote(selectedIds) {
-    try {
-      if (!Array.isArray(selectedIds) || selectedIds.length === 0) {
-        return setErro("Nenhum cliente selecionado.");
-      }
+    if (!selectedIds.length) return setErro("Nenhum cliente selecionado.");
 
+    try {
       setUpdating(true);
 
-      const itens = titulos.filter((t) => selectedIds.includes(t.codparc));
-
-      const novaSituacao =
-        modo === "bloqueio" ? "BLOQUEADO" : "ATIVO";
-
-      const clientes = itens.map((t) => ({
-        codparc: t.codparc,
-        codemp: t.codemp,
-        novaSituacao,
-      }));
+      const itens = titulos.filter(t => selectedIds.includes(t.codparc));
+      const novaSituacao = modo === "bloqueio" ? "BLOQUEADO" : "ATIVO";
 
       await api.post("/api/bloqueio/lote", {
         empresa,
-        clientes,
+        clientes: itens.map(t => ({
+          codparc: t.codparc,
+          codemp: t.codemp,
+          novaSituacao,
+        })),
       });
 
-      setTitulos((prev) =>
-        prev.map((t) =>
+      setTitulos(prev =>
+        prev.map(t =>
           selectedIds.includes(t.codparc)
             ? { ...t, situacao: novaSituacao }
             : t
         )
       );
-    } catch (e) {
-      console.error(e);
+
+    } catch {
       setErro("Erro ao aplicar operação em lote.");
     } finally {
       setUpdating(false);
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // LOTE: NEGATIVAÇÃO
+  // ---------------------------------------------------------------------------
   async function aplicarNegativacaoLote(selectedIds) {
-    try {
-      if (!Array.isArray(selectedIds) || selectedIds.length === 0) {
-        return setErro("Nenhum cliente selecionado para negativar.");
-      }
+    if (!selectedIds.length) return setErro("Nenhum cliente selecionado.");
 
+    try {
       setUpdating(true);
 
-      const itens = titulos.filter((t) => selectedIds.includes(t.codparc));
+      const itens = titulos.filter(t => selectedIds.includes(t.codparc));
 
-      const clientes = itens.map((t) => ({
-        codparc: t.codparc,
-        codemp: t.codemp,
-      }));
+      await api.post("/api/negativacao/lote", {
+        clientes: itens.map(t => ({
+          codparc: t.codparc,
+          codemp: t.codemp,
+        })),
+      });
 
-      await api.post("/api/negativacao/lote", { clientes });
-
-      setTitulos((prev) =>
-        prev.map((t) =>
+      setTitulos(prev =>
+        prev.map(t =>
           selectedIds.includes(t.codparc)
             ? { ...t, negativado: "S" }
             : t
         )
       );
-    } catch (e) {
-      console.error(e);
+
+    } catch (err) {
+      console.error(err);
       setErro("Erro ao negativar clientes.");
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // LOTE: REMOVER RESTRIÇÃO
+  // ---------------------------------------------------------------------------
+  async function aplicarRemoverRestricaoLote(selectedIds) {
+    if (!selectedIds.length) return setErro("Nenhum cliente selecionado.");
+
+    try {
+      setUpdating(true);
+
+      const itens = titulos.filter(t => selectedIds.includes(t.codparc));
+
+      await api.post("/api/negativacao/remover/lote", {
+        clientes: itens.map(t => ({
+          codparc: t.codparc,
+          codemp: t.codemp,
+        })),
+      });
+
+      setTitulos(prev =>
+        prev.map(t =>
+          selectedIds.includes(t.codparc)
+            ? { ...t, negativado: "N" }
+            : t
+        )
+      );
+
+    } catch (err) {
+      console.error(err);
+      setErro("Erro ao remover restrição.");
     } finally {
       setUpdating(false);
     }
@@ -230,6 +315,7 @@ export function useTitulosFinanceiro() {
     empresa,
     setEmpresa,
     empresasDoNegocio,
+
     titulos,
     erro,
     loading,
@@ -241,9 +327,11 @@ export function useTitulosFinanceiro() {
     buscarParaBloqueio,
     buscarPagosBloqueados,
     buscarParaNegativar,
+    buscarParaRemoverRestricao,
 
     carregarMais,
     aplicarLote,
     aplicarNegativacaoLote,
+    aplicarRemoverRestricaoLote,
   };
 }
