@@ -1,13 +1,19 @@
-FROM node:22-alpine
+FROM node:20-alpine
+
+# Instalar cron
+RUN apk add --no-cache dcron
 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+RUN npm install --omit=dev
 
 COPY . .
 
+# Copia o arquivo de agendamento
+COPY cronjob /etc/crontabs/root
+
 ENV NODE_ENV=production
 
-# roda o ETL (ajuste o caminho se for diferente)
-CMD ["node", "src/index.js"]
+# Rodar cron em foreground (obrigatório para Docker)
+CMD ["crond", "-f", "-l", "2"]

@@ -1,6 +1,7 @@
 import "./App.css";
 import { useEffect, useState } from "react";
 import { useTitulosFinanceiro } from "../hooks/useTitulosFinanceiro.js";
+
 import { EmpresaFilter } from "../components/EmpresaFilter.jsx";
 import { TitulosTable } from "../components/TitulosTable.jsx";
 import { exportClientesParaExcel } from "../utils/exportClientesParaExcel.js";
@@ -23,8 +24,11 @@ export default function App() {
 
     buscarParaBloqueio,
     buscarPagosBloqueados,
+    buscarParaNegativar,        // NOVO
     carregarMais,
+
     aplicarLote,
+    aplicarNegativacaoLote      // NOVO
   } = useTitulosFinanceiro();
 
   const [selectedCodparcs, setSelectedCodparcs] = useState([]);
@@ -38,7 +42,10 @@ export default function App() {
   };
 
   const handleToggleSelectAll = () => {
-    const ids = Array.from(new Set(titulos.map((t) => t.codparc)));
+    const ids = Array.from(
+      new Set(titulos.map((t) => t.codparc).filter(Boolean))
+    );
+
     setSelectedCodparcs(
       selectedCodparcs.length === ids.length ? [] : ids
     );
@@ -65,6 +72,7 @@ export default function App() {
         onChangeEmpresa={setEmpresa}
         onBuscarBloqueio={buscarParaBloqueio}
         onBuscarDesbloqueio={buscarPagosBloqueados}
+        onBuscarNegativacao={buscarParaNegativar}   // NOVO
         loading={loading}
       />
 
@@ -91,6 +99,16 @@ export default function App() {
             </>
           )}
 
+          {modo === "negativacao" && (
+            <button
+              className="btn btn-dark"
+              disabled={selectedCodparcs.length === 0 || updating}
+              onClick={() => aplicarNegativacaoLote(selectedCodparcs)}
+            >
+              Aplicar Negativação
+            </button>
+          )}
+
           <span>
             Registros: {titulos.length} (lote {pageSize})
           </span>
@@ -108,6 +126,15 @@ export default function App() {
         onToggleSelect={handleToggleSelect}
         onToggleSelectAll={handleToggleSelectAll}
       />
+
+      {hasMore && !loading && (
+        <button
+          className="btn btn-secondary"
+          onClick={carregarMais}
+        >
+          Carregar mais
+        </button>
+      )}
     </div>
   );
 }

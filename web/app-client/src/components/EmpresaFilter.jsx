@@ -6,6 +6,7 @@ export function EmpresaFilter({
   onChangeEmpresa,
   onBuscarBloqueio,
   onBuscarDesbloqueio,
+  onBuscarNegativacao,
   loading
 }) {
   const disabledAcoes = loading || !negocio;
@@ -56,6 +57,15 @@ export function EmpresaFilter({
       >
         Desbloquear Clientes
       </button>
+
+      <button
+        className="btn btn-dark"
+        onClick={() => onBuscarNegativacao()}
+        disabled={disabledAcoes}
+      >
+        Negativar Clientes
+      </button>
+
     </div>
   );
 }

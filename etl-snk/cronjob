@@ -1,0 +1,2 @@
+# Execução: segunda a sexta, às 08:00
+0 8 * * 1-5 node /app/index.js >> /var/log/etl.log 2>&1

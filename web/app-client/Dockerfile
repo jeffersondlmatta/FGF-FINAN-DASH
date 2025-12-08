@@ -1,16 +1,18 @@
-FROM node:22-alpine
+# Build do front
+FROM node:20-alpine AS builder
 
 WORKDIR /app
-
 COPY package*.json ./
 RUN npm install
 
 COPY . .
+RUN npm run build
 
-ENV NODE_ENV=development
-ENV HOST=0.0.0.0
-ENV PORT=5173
 
-EXPOSE 5173
+# Servir arquivos estáticos com nginx
+FROM nginx:1.25-alpine
 
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+COPY --from=builder /app/dist /usr/share/nginx/html
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

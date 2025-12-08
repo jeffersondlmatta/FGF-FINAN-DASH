@@ -13,6 +13,7 @@ export function useTitulosFinanceiro() {
 
   const [page, setPage] = useState(0);
   const pageSize = 100;
+
   const [modo, setModo] = useState("idle");
   const [hasMore, setHasMore] = useState(false);
 
@@ -87,10 +88,36 @@ export function useTitulosFinanceiro() {
     }
   }, [empresa, pageSize]);
 
+  const buscarParaNegativar = useCallback(async () => {
+    try {
+      limparErro();
+      if (!negocio) {
+        setErro("Selecione o negócio.");
+        return;
+      }
+      setLoading(true);
+      setModo("negativacao");
+      setPage(0);
+
+      const resp = await api.get("/api/negativacao/clientes", {
+        params: { empresa, negocio, page: 0, pageSize },
+      });
+
+      const lista = resp.data?.data ?? [];
+      setTitulos(lista);
+      setHasMore(lista.length === pageSize);
+    } catch {
+      setErro("Erro ao buscar clientes para negativação.");
+    } finally {
+      setLoading(false);
+    }
+  }, [empresa, negocio, pageSize]);
+
   const carregarMais = useCallback(async () => {
     if (!hasMore || loading) return;
 
     const next = page + 1;
+
     try {
       setLoading(true);
 
@@ -103,9 +130,14 @@ export function useTitulosFinanceiro() {
         resp = await api.get("/api/desbloqueio/clientes", {
           params: { empresa, page: next, pageSize },
         });
+      } else if (modo === "negativacao") {
+        resp = await api.get("/api/negativacao/clientes", {
+          params: { empresa, negocio, page: next, pageSize },
+        });
       }
 
       const lista = resp?.data?.data ?? [];
+
       if (!lista.length) {
         setHasMore(false);
         return;
@@ -129,35 +161,64 @@ export function useTitulosFinanceiro() {
 
       setUpdating(true);
 
-      const itens = titulos.filter(t => selectedIds.includes(t.codparc));
+      const itens = titulos.filter((t) => selectedIds.includes(t.codparc));
 
       const novaSituacao =
-        modo === "bloqueio"
-          ? "BLOQUEADO"
-          : "ATIVO";
+        modo === "bloqueio" ? "BLOQUEADO" : "ATIVO";
 
-      const clientes = itens.map(t => ({
+      const clientes = itens.map((t) => ({
         codparc: t.codparc,
         codemp: t.codemp,
-        novaSituacao
+        novaSituacao,
       }));
 
       await api.post("/api/bloqueio/lote", {
         empresa,
-        clientes
+        clientes,
       });
 
-      setTitulos(prev =>
-        prev.map(t =>
+      setTitulos((prev) =>
+        prev.map((t) =>
           selectedIds.includes(t.codparc)
             ? { ...t, situacao: novaSituacao }
             : t
         )
       );
-
     } catch (e) {
       console.error(e);
       setErro("Erro ao aplicar operação em lote.");
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  async function aplicarNegativacaoLote(selectedIds) {
+    try {
+      if (!Array.isArray(selectedIds) || selectedIds.length === 0) {
+        return setErro("Nenhum cliente selecionado para negativar.");
+      }
+
+      setUpdating(true);
+
+      const itens = titulos.filter((t) => selectedIds.includes(t.codparc));
+
+      const clientes = itens.map((t) => ({
+        codparc: t.codparc,
+        codemp: t.codemp,
+      }));
+
+      await api.post("/api/negativacao/lote", { clientes });
+
+      setTitulos((prev) =>
+        prev.map((t) =>
+          selectedIds.includes(t.codparc)
+            ? { ...t, negativado: "S" }
+            : t
+        )
+      );
+    } catch (e) {
+      console.error(e);
+      setErro("Erro ao negativar clientes.");
     } finally {
       setUpdating(false);
     }
@@ -176,9 +237,13 @@ export function useTitulosFinanceiro() {
     modo,
     hasMore,
     pageSize,
+
     buscarParaBloqueio,
     buscarPagosBloqueados,
+    buscarParaNegativar,
+
     carregarMais,
     aplicarLote,
+    aplicarNegativacaoLote,
   };
 }
