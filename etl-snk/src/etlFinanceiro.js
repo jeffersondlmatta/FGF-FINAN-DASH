@@ -45,6 +45,19 @@ function calcAtraso(DTVENC, status) {
   return diffDias > 0 ? diffDias : 0;
 }
 
+// 🧠 Normalização para comparar naturezas sem dor de cabeça
+function normalize(str) {
+  if (!str) return "";
+  return str
+    .toString()
+    .toLowerCase()
+    .normalize("NFD")                     // separa acentos
+    .replace(/[\u0300-\u036f]/g, "")      // remove acentos
+    .replace(/\./g, "")                   // remove pontos
+    .replace(/\s+/g, " ")                 // normaliza espaços
+    .trim();
+}
+
 // Mapeamento de NEGÓCIO
 function getNegocio(codemp) {
   if (codemp === 20) return "Gob";
@@ -55,16 +68,16 @@ function getNegocio(codemp) {
   return null;
 }
 
-// LISTA OFICIAL DE NATUREZAS PERMITIDAS
-const naturezasReceita = [
+// LISTA OFICIAL DE NATUREZAS PERMITIDAS (forma "canônica")
+const naturezasReceitaBase = [
   "receita de contabilidade retroativa",
   "receita de contabilidade",
   "receita servicos avulsos contabil",
   "servicos avulsos contabilidade",
   "servicos avulsos departamento pessoal",
   "servicos avulsos legalizacao",
-  "receita manut revisao fiscal",
-  "receita portal revisao fiscal",
+  "receita manut revisao fiscal",        // pega "RECEITA MANUT. REVISÃO FISCAL" normalizado
+  "receita portal revisao fiscal",       // pega "RECEITA PORTAL REVISÃO FISCAL" normalizado
   "receita revisao fiscal",
   "receita servico calculo st fiscal",
   "receita gob cfiscal",
@@ -72,6 +85,11 @@ const naturezasReceita = [
   "receita gob perdcomp",
   "receita gob retroativo",
 ];
+
+// transforma tudo em forma normalizada e já joga num Set
+const naturezasReceitaSet = new Set(
+  naturezasReceitaBase.map((n) => normalize(n))
+);
 
 // Mapeamento
 function mapRowToDb(row) {
@@ -129,7 +147,7 @@ function mapRowToDb(row) {
   };
 }
 
-// UPSERT
+// UPSERT (igual ao seu, só mantive)
 async function upsertTitulo(client, t) {
   const sql = `
     INSERT INTO titulos_financeiro
@@ -193,8 +211,8 @@ export async function carregarTitulosNoBanco(registros) {
     for (const row of registros) {
       const t = mapRowToDb(row);
 
-      const descr = (t.descr_natureza || "").toLowerCase().trim();
-      const naturezaValida = naturezasReceita.includes(descr);
+      const descrNorm = normalize(t.descr_natureza || "");
+      const naturezaValida = naturezasReceitaSet.has(descrNorm);
 
       const ativo = (t.ativo_contrato || "").toString().trim().toUpperCase();
 

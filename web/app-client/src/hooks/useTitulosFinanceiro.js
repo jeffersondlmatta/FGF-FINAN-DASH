@@ -50,28 +50,49 @@ export function useTitulosFinanceiro() {
   // MODO: PASSIVO DE BLOQUEIO
   // ---------------------------------------------------------------------------
   const buscarParaBloqueio = useCallback(async () => {
-    try {
-      limparErro();
-      if (!negocio) return setErro("Selecione o negócio.");
-
-      setLoading(true);
-      setModo("bloqueio");
-      setPage(0);
-
-      const resp = await api.get("/api/home/clientes-para-bloqueio", {
-        params: { empresa, negocio, atrasoMin: 20, page: 0, pageSize },
-      });
-
-      const lista = resp.data?.data ?? [];
-      setTitulos(lista);
-      setHasMore(lista.length === pageSize);
-
-    } catch {
-      setErro("Erro ao buscar passivo de bloqueio.");
-    } finally {
-      setLoading(false);
+  try {
+    limparErro();
+    if (!negocio) {
+      return setErro("Selecione o negócio.");
     }
-  }, [empresa, negocio]);
+
+    setLoading(true);
+    setModo("bloqueio");
+    setPage(0);
+
+    // Naturezas recorrentes 100% sincronizadas com banco
+    const naturezasRecorrentes = [
+      "RECEITA DE CONTABILIDADE",
+      "RECEITA MANUT. REVISÃO FISCAL",
+      "RECEITA PORTAL REVISÃO FISCAL",
+      "RECEITA GOB PERDCOMP",
+      "RECEITA GOB CFISCAL"
+    ];
+
+    const resp = await api.get("/api/home/clientes-para-bloqueio", {
+      params: {
+        empresa: empresa || "",
+        negocio,
+        atrasoMin: 20,
+        naturezas: naturezasRecorrentes,
+        page: 0,
+        pageSize
+      }
+    });
+
+    const lista = resp.data?.data ?? [];
+    setTitulos(lista);
+    setHasMore(lista.length === pageSize);
+
+  } catch (error) {
+    console.error("Erro buscarParaBloqueio:", error);
+    setErro("Erro ao buscar passivo de bloqueio.");
+  } finally {
+    setLoading(false);
+  }
+}, [empresa, negocio, pageSize]);
+
+
 
   // ---------------------------------------------------------------------------
   // MODO: DESBLOQUEIO

@@ -34,7 +34,7 @@ router.get("/clientes", async (req, res) => {
              WHERE x.codparc = t.codparc
                AND x.codemp = t.codemp
                AND UPPER(x.status) = 'ATRASADO'
-               AND x.atraso > 20
+               AND x.atraso > 19
       )
     `;
 

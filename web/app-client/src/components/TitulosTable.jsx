@@ -86,6 +86,7 @@ export function TitulosTable({
             <th>Número financeiro</th>
             <th>Status</th>
             <th>Vencimento</th>
+            <th>Valor</th>
             <th>Dias atraso</th>
             <th>Histórico</th>
             <th>Situação</th>
@@ -131,6 +132,7 @@ export function TitulosTable({
                 <td>{t.nufin}</td>
                 <td>{t.status}</td>
                 <td>{formatarData(t.dt_vencimento)}</td>
+                <td>{t.valor_desdobra}</td>
                 <td>{t.atraso}</td>
                 <td>{t.historico}</td>
 
