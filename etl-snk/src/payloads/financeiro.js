@@ -7,7 +7,7 @@
 export function intervaloUltimos9Meses() {
   const hoje = new Date();
   const inicio = new Date(hoje);
-  inicio.setMonth(inicio.getMonth() - 3);
+  inicio.setMonth(inicio.getMonth() - 4);
 
   const fmt = (d) => {
     const dd = String(d.getDate()).padStart(2, '0');

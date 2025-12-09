@@ -32,6 +32,8 @@ export default function App() {
     aplicarLote,
     aplicarNegativacaoLote,
     aplicarRemoverRestricaoLote,
+
+    buscarParceirosBloqueados,  // <-- NOVA FUNÇÃO DO HOOK
   } = useTitulosFinanceiro();
 
   const [selectedCodparcs, setSelectedCodparcs] = useState([]);
@@ -85,16 +87,38 @@ export default function App() {
       {titulos.length > 0 && (
         <div className="actions-bar">
 
+          {/* PASSIVO DE BLOQUEIO */}
           {modo === "bloqueio" && (
-            <button
-              className="btn btn-danger"
-              disabled={selectedCodparcs.length === 0 || updating}
-              onClick={() => aplicarLote(selectedCodparcs)}
-            >
-              Aplicar Bloqueio (em lote)
-            </button>
+            <>
+              <button
+                className="btn btn-danger"
+                disabled={selectedCodparcs.length === 0 || updating}
+                onClick={() => aplicarLote(selectedCodparcs)}
+              >
+                Aplicar Bloqueio (em lote)
+              </button>
+
+              {/* 🔥 NOVO BOTÃO → PARCEIROS BLOQUEADOS */}
+              <button
+                className="btn btn-warning"
+                disabled={loading}
+                onClick={buscarParceirosBloqueados}
+              >
+                Parceiros Bloqueados
+              </button>
+
+              {/* Exportação */}
+              <button
+                className="btn btn-outline"
+                onClick={handleExportarExcel}
+                disabled={updating}
+              >
+                Exportar Excel
+              </button>
+            </>
           )}
 
+          {/* DESBLOQUEIO */}
           {modo === "desbloqueio" && (
             <button
               className="btn btn-warning"
@@ -105,30 +129,46 @@ export default function App() {
             </button>
           )}
 
+          {/* NEGATIVAÇÃO */}
           {modo === "negativacao" && (
-            <button
-              className="btn btn-dark"
-              disabled={selectedCodparcs.length === 0 || updating}
-              onClick={() => aplicarNegativacaoLote(selectedCodparcs)}
-            >
-              Aplicar Negativação
-            </button>
+            <>
+              <button
+                className="btn btn-dark"
+                disabled={selectedCodparcs.length === 0 || updating}
+                onClick={() => aplicarNegativacaoLote(selectedCodparcs)}
+              >
+                Aplicar Negativação
+              </button>
+
+              <button
+                className="btn btn-outline"
+                onClick={handleExportarExcel}
+                disabled={updating}
+              >
+                Exportar Excel
+              </button>
+            </>
           )}
 
+          {/* REMOVER RESTRIÇÃO */}
           {modo === "removerRestricao" && (
-            <button
-              className="btn btn-success"
-              disabled={selectedCodparcs.length === 0 || updating}
-              onClick={() => aplicarRemoverRestricaoLote(selectedCodparcs)}
-            >
-              Remover Restrição
-            </button>
-          )}
+            <>
+              <button
+                className="btn btn-success"
+                disabled={selectedCodparcs.length === 0 || updating}
+                onClick={() => aplicarRemoverRestricaoLote(selectedCodparcs)}
+              >
+                Remover Restrição
+              </button>
 
-          {(modo === "bloqueio" || modo === "desbloqueio") && (
-            <button className="btn btn-outline" onClick={handleExportarExcel}>
-              Exportar Excel
-            </button>
+              <button
+                className="btn btn-outline"
+                onClick={handleExportarExcel}
+                disabled={updating}
+              >
+                Exportar Excel
+              </button>
+            </>
           )}
 
           <span>

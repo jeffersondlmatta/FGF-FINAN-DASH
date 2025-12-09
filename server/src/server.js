@@ -14,6 +14,7 @@ import empresas from "./routes/empresas.js";
 import bloqueio from "./routes/bloqueio.js";
 import desbloqueio from "./routes/desbloqueio.js";
 import negativacao from "./routes/negativacao.js";
+import parceirosBloqueados from "./routes/bloqueados.js";
 
 const app = express();
 const isProd = process.env.NODE_ENV === "production";
@@ -40,6 +41,7 @@ app.use("/api/empresas", empresas);
 app.use("/api/bloqueio", bloqueio);
 app.use("/api/desbloqueio", desbloqueio);
 app.use("/api/negativacao", negativacao);
+app.use("/api/bloqueados", parceirosBloqueados);
 
 // Healthcheck
 app.get("/api/health", (_req, res) =>

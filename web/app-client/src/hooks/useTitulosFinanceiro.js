@@ -14,13 +14,13 @@ export function useTitulosFinanceiro() {
   const [page, setPage] = useState(0);
   const pageSize = 100;
 
-  const [modo, setModo] = useState("idle"); 
+  const [modo, setModo] = useState("idle");
   const [hasMore, setHasMore] = useState(false);
 
   const limparErro = () => setErro(null);
 
   // ---------------------------------------------------------------------------
-  // CARREGAR EMPRESAS QUANDO SELECIONAR NEGÓCIO
+  // CARREGAR EMPRESAS DO NEGÓCIO
   // ---------------------------------------------------------------------------
   const carregarEmpresasDoNegocio = useCallback(async (_negocio) => {
     try {
@@ -47,55 +47,50 @@ export function useTitulosFinanceiro() {
   };
 
   // ---------------------------------------------------------------------------
-  // MODO: PASSIVO DE BLOQUEIO
+  // PASSIVO DE BLOQUEIO
   // ---------------------------------------------------------------------------
   const buscarParaBloqueio = useCallback(async () => {
-  try {
-    limparErro();
-    if (!negocio) {
-      return setErro("Selecione o negócio.");
+    try {
+      limparErro();
+      if (!negocio) return setErro("Selecione o negócio.");
+
+      setLoading(true);
+      setModo("bloqueio");
+      setPage(0);
+
+      const naturezasRecorrentes = [
+        "RECEITA DE CONTABILIDADE",
+        "RECEITA MANUT. REVISÃO FISCAL",
+        "RECEITA PORTAL REVISÃO FISCAL",
+        "RECEITA GOB PERDCOMP",
+        "RECEITA GOB CFISCAL"
+      ];
+
+      const resp = await api.get("/api/home/clientes-para-bloqueio", {
+        params: {
+          empresa: empresa || "",
+          negocio,
+          atrasoMin: 20,
+          naturezas: naturezasRecorrentes,
+          page: 0,
+          pageSize
+        }
+      });
+
+      const lista = resp.data?.data ?? [];
+      setTitulos(lista);
+      setHasMore(lista.length === pageSize);
+
+    } catch (error) {
+      console.error(error);
+      setErro("Erro ao buscar passivo de bloqueio.");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(true);
-    setModo("bloqueio");
-    setPage(0);
-
-    // Naturezas recorrentes 100% sincronizadas com banco
-    const naturezasRecorrentes = [
-      "RECEITA DE CONTABILIDADE",
-      "RECEITA MANUT. REVISÃO FISCAL",
-      "RECEITA PORTAL REVISÃO FISCAL",
-      "RECEITA GOB PERDCOMP",
-      "RECEITA GOB CFISCAL"
-    ];
-
-    const resp = await api.get("/api/home/clientes-para-bloqueio", {
-      params: {
-        empresa: empresa || "",
-        negocio,
-        atrasoMin: 20,
-        naturezas: naturezasRecorrentes,
-        page: 0,
-        pageSize
-      }
-    });
-
-    const lista = resp.data?.data ?? [];
-    setTitulos(lista);
-    setHasMore(lista.length === pageSize);
-
-  } catch (error) {
-    console.error("Erro buscarParaBloqueio:", error);
-    setErro("Erro ao buscar passivo de bloqueio.");
-  } finally {
-    setLoading(false);
-  }
-}, [empresa, negocio, pageSize]);
-
-
+  }, [empresa, negocio, pageSize]);
 
   // ---------------------------------------------------------------------------
-  // MODO: DESBLOQUEIO
+  // DESBLOQUEIO
   // ---------------------------------------------------------------------------
   const buscarPagosBloqueados = useCallback(async () => {
     try {
@@ -121,7 +116,7 @@ export function useTitulosFinanceiro() {
   }, [empresa]);
 
   // ---------------------------------------------------------------------------
-  // MODO: NEGATIVAÇÃO
+  // NEGATIVAÇÃO
   // ---------------------------------------------------------------------------
   const buscarParaNegativar = useCallback(async () => {
     try {
@@ -148,7 +143,7 @@ export function useTitulosFinanceiro() {
   }, [empresa, negocio]);
 
   // ---------------------------------------------------------------------------
-  // MODO: REMOVER RESTRIÇÃO (DESNEGATIVAR)
+  // REMOVER RESTRIÇÃO (DESNEGATIVAÇÃO)
   // ---------------------------------------------------------------------------
   const buscarParaRemoverRestricao = useCallback(async () => {
     try {
@@ -176,7 +171,40 @@ export function useTitulosFinanceiro() {
   }, [empresa, negocio]);
 
   // ---------------------------------------------------------------------------
-  // PAGINAÇÃO "CARREGAR MAIS"
+  // LISTAR PARCEIROS BLOQUEADOS  << NOVO
+  // ---------------------------------------------------------------------------
+  const buscarParceirosBloqueados = useCallback(async () => {
+    try {
+      limparErro();
+      if (!negocio) return setErro("Selecione o negócio.");
+
+      setLoading(true);
+      setModo("parceirosBloqueados");
+      setPage(0);
+
+      const resp = await api.get("/api/bloqueados/por-negocio", {
+        params: {
+          negocio,
+          empresa: empresa || "",
+          page: 0,
+          pageSize
+        }
+      });
+
+      const lista = resp.data?.data ?? [];
+      setTitulos(lista);
+      setHasMore(lista.length === pageSize);
+
+    } catch (err) {
+      console.error("Erro buscarParceirosBloqueados:", err);
+      setErro("Erro ao buscar parceiros bloqueados.");
+    } finally {
+      setLoading(false);
+    }
+  }, [empresa, negocio, pageSize]);
+
+  // ---------------------------------------------------------------------------
+  // CARREGAR MAIS (scroll / paginação)
   // ---------------------------------------------------------------------------
   const carregarMais = useCallback(async () => {
     if (!hasMore || loading) return;
@@ -192,22 +220,20 @@ export function useTitulosFinanceiro() {
         resp = await api.get("/api/home/clientes-para-bloqueio", {
           params: { empresa, negocio, page: next, pageSize, atrasoMin: 20 },
         });
-      }
-
-      else if (modo === "desbloqueio") {
+      } else if (modo === "desbloqueio") {
         resp = await api.get("/api/desbloqueio/clientes", {
           params: { empresa, page: next, pageSize },
         });
-      }
-
-      else if (modo === "negativacao") {
+      } else if (modo === "negativacao") {
         resp = await api.get("/api/negativacao/clientes", {
           params: { empresa, negocio, page: next, pageSize },
         });
-      }
-
-      else if (modo === "removerRestricao") {
+      } else if (modo === "removerRestricao") {
         resp = await api.get("/api/negativacao/remover", {
+          params: { empresa, negocio, page: next, pageSize },
+        });
+      } else if (modo === "parceirosBloqueados") {
+        resp = await api.get("/api/bloqueados/por-negocio", {
           params: { empresa, negocio, page: next, pageSize },
         });
       }
@@ -215,7 +241,7 @@ export function useTitulosFinanceiro() {
       const lista = resp?.data?.data ?? [];
       if (!lista.length) return setHasMore(false);
 
-      setTitulos((prev) => [...prev, ...lista]);
+      setTitulos(prev => [...prev, ...lista]);
       setPage(next);
       setHasMore(lista.length === pageSize);
 
@@ -227,7 +253,7 @@ export function useTitulosFinanceiro() {
   }, [hasMore, loading, modo, empresa, negocio, page]);
 
   // ---------------------------------------------------------------------------
-  // LOTE: BLOQUEIO / DESBLOQUEIO
+  // AÇÕES EM LOTE
   // ---------------------------------------------------------------------------
   async function aplicarLote(selectedIds) {
     if (!selectedIds.length) return setErro("Nenhum cliente selecionado.");
@@ -262,9 +288,6 @@ export function useTitulosFinanceiro() {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // LOTE: NEGATIVAÇÃO
-  // ---------------------------------------------------------------------------
   async function aplicarNegativacaoLote(selectedIds) {
     if (!selectedIds.length) return setErro("Nenhum cliente selecionado.");
 
@@ -296,9 +319,6 @@ export function useTitulosFinanceiro() {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // LOTE: REMOVER RESTRIÇÃO
-  // ---------------------------------------------------------------------------
   async function aplicarRemoverRestricaoLote(selectedIds) {
     if (!selectedIds.length) return setErro("Nenhum cliente selecionado.");
 
@@ -330,6 +350,9 @@ export function useTitulosFinanceiro() {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // RETORNO DO HOOK  << ESSENCIAL!
+  // ---------------------------------------------------------------------------
   return {
     negocio,
     onChangeNegocio,
@@ -349,6 +372,7 @@ export function useTitulosFinanceiro() {
     buscarPagosBloqueados,
     buscarParaNegativar,
     buscarParaRemoverRestricao,
+    buscarParceirosBloqueados,   // << AGORA ESTÁ AQUI!
 
     carregarMais,
     aplicarLote,
