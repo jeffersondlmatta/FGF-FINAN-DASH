@@ -13,7 +13,6 @@ export default function App() {
     empresa,
     setEmpresa,
     empresasDoNegocio,
-
     titulos,
     erro,
     loading,
@@ -21,19 +20,15 @@ export default function App() {
     modo,
     hasMore,
     pageSize,
-
     buscarParaBloqueio,
     buscarPagosBloqueados,
     buscarParaNegativar,
     buscarParaRemoverRestricao,
-
     carregarMais,
-
     aplicarLote,
     aplicarNegativacaoLote,
     aplicarRemoverRestricaoLote,
-
-    buscarParceirosBloqueados,  // <-- NOVA FUNÇÃO DO HOOK
+    buscarParceirosBloqueados, 
   } = useTitulosFinanceiro();
 
   const [selectedCodparcs, setSelectedCodparcs] = useState([]);
@@ -75,7 +70,6 @@ export default function App() {
         empresasDoNegocio={empresasDoNegocio}
         onChangeNegocio={onChangeNegocio}
         onChangeEmpresa={setEmpresa}
-
         onBuscarBloqueio={buscarParaBloqueio}
         onBuscarDesbloqueio={buscarPagosBloqueados}
         onBuscarNegativacao={buscarParaNegativar}
@@ -100,7 +94,7 @@ export default function App() {
 
               {/* 🔥 NOVO BOTÃO → PARCEIROS BLOQUEADOS */}
               <button
-                className="btn btn-warning"
+                className="btn btn-outline"
                 disabled={loading}
                 onClick={buscarParceirosBloqueados}
               >

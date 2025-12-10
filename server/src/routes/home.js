@@ -93,7 +93,7 @@ router.get("/clientes-para-bloqueio", async (req, res) => {
     const limit = Number(pageSize);
     const offset = Number(page) * limit;
 
-    // 🔥 Naturezas 100% fiéis ao banco
+    // Naturezas recorrentes 100% fiéis ao banco
     const naturezasRecorrentes = [
       "receita de contabilidade",
       "receita manut. revisão fiscal",
@@ -102,38 +102,11 @@ router.get("/clientes-para-bloqueio", async (req, res) => {
       "receita gob cfiscal",
     ];
 
-    // SQL base
+    let params = [negocio, atrasoMin, naturezasRecorrentes];
+    let i = 4;
+
+    // SQL AGORA SEM AGRUPAMENTO E SEM ROW_NUMBER
     let sql = `
-      WITH lista AS (
-        SELECT
-          *,
-          ROW_NUMBER() OVER (PARTITION BY codparc ORDER BY atraso DESC) AS rn
-        FROM titulos_financeiro
-        WHERE negocio = $1
-          AND atraso >= $2
-          AND status = 'Atrasado'
-          AND (
-              situacao IS NULL OR 
-              situacao ILIKE 'ATIVO' OR 
-              situacao ILIKE 'LIBERADO'
-          )
-          AND LOWER(descr_natureza) = ANY($3)
-    `;
-
-    const params = [negocio, atrasoMin, naturezasRecorrentes];
-
-    if (empresa) {
-      sql += ` AND codemp = $4 `;
-      params.push(Number(empresa));
-    }
-
-    sql += `
-      ),
-      selecionado AS (
-        SELECT *
-        FROM lista
-        WHERE rn = 1
-      )
       SELECT
         codemp,
         nome_empresa,
@@ -149,10 +122,29 @@ router.get("/clientes-para-bloqueio", async (req, res) => {
         historico,
         situacao,
         negocio
-      FROM selecionado
-      ORDER BY nome_parceiro
-      LIMIT ${limit} OFFSET ${offset};
+      FROM titulos_financeiro
+      WHERE negocio = $1
+        AND atraso >= $2
+        AND status = 'Atrasado'
+        AND (
+            situacao IS NULL OR 
+            situacao ILIKE 'ATIVO' OR 
+            situacao ILIKE 'LIBERADO'
+        )
+        AND LOWER(descr_natureza) = ANY($3)
     `;
+
+    if (empresa) {
+      sql += ` AND codemp = $${i++} `;
+      params.push(Number(empresa));
+    }
+
+    sql += `
+      ORDER BY codparc, dt_vencimento ASC
+      LIMIT $${i++} OFFSET $${i++}
+    `;
+
+    params.push(limit, offset);
 
     const rows = await q(sql, params);
 
@@ -161,6 +153,7 @@ router.get("/clientes-para-bloqueio", async (req, res) => {
       data: rows,
       page: Number(page),
       pageSize: limit,
+      count: rows.length,
     });
 
   } catch (err) {
@@ -168,6 +161,7 @@ router.get("/clientes-para-bloqueio", async (req, res) => {
     return res.status(500).json({ ok: false, message: "Erro interno." });
   }
 });
+
 
 /* ============================================================================
    GET /api/home/empresas-por-negocio

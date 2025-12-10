@@ -35,9 +35,9 @@ router.get("/clientes", async (req, res) => {
       where += ` AND negocio = $${i++}`;
       params.push(negocio);
     }
-
+//use DISTINCT ON (codparc) depois de select para evitar duplicatas
     const sql = `
-      SELECT DISTINCT ON (codparc)
+      SELECT 
         codemp,
         codparc,
         nome_empresa,
@@ -45,6 +45,7 @@ router.get("/clientes", async (req, res) => {
         descr_natureza,
         nufin,
         dt_vencimento,
+        valor_desdobra,
         atraso,
         status,
         historico,
