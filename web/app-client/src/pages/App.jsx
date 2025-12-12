@@ -92,7 +92,7 @@ export default function App() {
                 Aplicar Bloqueio (em lote)
               </button>
 
-              {/* 🔥 NOVO BOTÃO → PARCEIROS BLOQUEADOS */}
+              {/*PARCEIROS BLOQUEADOS */}
               <button
                 className="btn btn-outline"
                 disabled={loading}

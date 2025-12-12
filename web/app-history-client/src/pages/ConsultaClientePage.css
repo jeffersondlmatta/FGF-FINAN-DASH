@@ -1,0 +1,135 @@
+.consulta-page,
+.consulta-page * {
+  font-family: "IBM Plex Sans", Arial, Helvetica, sans-serif;
+}
+
+.consulta-page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 32px;
+}
+
+h1 {
+  margin-bottom: 24px;
+}
+
+.consulta-filtro {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.consulta-filtro input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+.card {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  margin-bottom: 32px;
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.data-table thead {
+  background: #0054fd40;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 14px;
+}
+
+.data-table th:nth-child(6),
+.data-table td:nth-child(6),
+.data-table th:nth-child(7),
+.data-table td:nth-child(7) {
+  min-width: 110px;
+  white-space: nowrap;
+}
+
+.data-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.data-table tbody tr:nth-child(even) {
+  background: #fcfcfd;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.valor {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+button {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secundario {
+  background: #374151;
+}
+
+.msg-erro {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+/* Badges */
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-atrasado {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.status-pago {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.ativo {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.bloqueado {
+  background: #fde68a;
+  color: #92400e;
+}
