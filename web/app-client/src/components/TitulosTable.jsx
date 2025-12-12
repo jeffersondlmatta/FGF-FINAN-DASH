@@ -1,4 +1,3 @@
-// src/components/TitulosTable.jsx
 
 // formata "2025-11-05T03:00:00.000Z" -> "05/11/2025"
 function formatarData(valor) {
@@ -38,7 +37,7 @@ export function TitulosTable({
 }) {
   if (!titulos || titulos.length === 0) return null;
 
-  // AGORA COBRE TODOS OS MODOS QUE USAM CHECKBOX
+  // COBRE TODOS OS MODOS QUE USAM CHECKBOX
   const mostraSelecao =
     modo === "bloqueio" ||
     modo === "desbloqueio" ||
