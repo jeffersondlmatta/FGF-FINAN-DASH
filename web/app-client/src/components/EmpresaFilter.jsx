@@ -75,7 +75,7 @@ export function EmpresaFilter({
         Negativar Clientes
       </button>
 
-      {/* REMOVER RESTRIÇÃO → NOVO */}
+      {/* REMOVER RESTRIÇÃO */}
       <button
         className="btn btn-success"
         disabled={disabledAcoes}

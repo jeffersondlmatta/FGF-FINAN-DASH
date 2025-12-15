@@ -10,36 +10,53 @@ const router = Router();
  */
 router.get("/parceiros", async (req, res) => {
   try {
-    const documento = (req.query.documento || "").replace(/\D/g, ""); // só números
+    const documento =
+      req.query.documento?.replace(/\D/g, "") || null;
 
-    if (!documento) {
-      return res.status(400).json({ ok: false, message: "Informe o CNPJ/CPF." });
+    const nome =
+      typeof req.query.nome === "string" && req.query.nome.trim() !== ""
+        ? req.query.nome.trim()
+        : null;
+
+    if (!documento && !nome) {
+      return res.status(400).json({
+        ok: false,
+        message: "Informe CPF/CNPJ ou Nome/Razão Social.",
+      });
     }
 
     const rows = await q(
       `
-      SELECT distinct on (codparc)
-             codparc,
-             cgc_cpf_parc,
-             nome_parceiro,
-             nome_empresa,
-             codemp,
-             situacao,
-             negativado,
-             ativo_contrato
-        FROM titulos_financeiro
-       WHERE regexp_replace(cgc_cpf_parc, '\\D', '', 'g') = $1
-       ORDER BY codparc, dt_vencimento DESC
+      SELECT DISTINCT ON (codparc)
+        codparc,
+        cgc_cpf_parc,
+        nome_parceiro,
+        nome_empresa,
+        codemp,
+        situacao,
+        negativado
+      FROM titulos_financeiro
+      WHERE
+        (
+          ($1::text IS NOT NULL AND cgc_cpf_parc = $1)
+          OR
+          ($2::text IS NOT NULL AND LOWER(TRIM(nome_parceiro)) LIKE '%' || LOWER(TRIM($2)) || '%')
+        )
+      ORDER BY codparc, nome_parceiro
       `,
-      [documento]
+      [documento, nome]
     );
+
 
     return res.json({ ok: true, data: rows });
   } catch (err) {
     console.error("Erro GET /api/consulta-cliente/parceiros:", err);
-    return res.status(500).json({ ok: false, message: "Erro ao buscar parceiro." });
+    return res
+      .status(500)
+      .json({ ok: false, message: "Erro ao buscar parceiro." });
   }
 });
+
 
 /**
  * GET /api/consulta-cliente/:codparc/titulos?empresa=&status=&page=&pageSize=

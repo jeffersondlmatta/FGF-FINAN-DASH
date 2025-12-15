@@ -15,6 +15,7 @@ h1 {
 
 .consulta-filtro {
   display: flex;
+  width: 700px;
   gap: 12px;
   margin-bottom: 24px;
 }

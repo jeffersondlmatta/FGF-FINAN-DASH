@@ -45,7 +45,7 @@ function calcAtraso(DTVENC, status) {
   return diffDias > 0 ? diffDias : 0;
 }
 
-// 🧠 Normalização para comparar naturezas sem dor de cabeça
+//  Normalização para comparar naturezas
 function normalize(str) {
   if (!str) return "";
   return str
@@ -68,7 +68,7 @@ function getNegocio(codemp) {
   return null;
 }
 
-// LISTA OFICIAL DE NATUREZAS PERMITIDAS (forma "canônica")
+// LISTA OFICIAL DE NATUREZAS PERMITIDAS
 const naturezasReceitaBase = [
   "receita de contabilidade retroativa",
   "receita de contabilidade",
@@ -76,8 +76,8 @@ const naturezasReceitaBase = [
   "servicos avulsos contabilidade",
   "servicos avulsos departamento pessoal",
   "servicos avulsos legalizacao",
-  "receita manut revisao fiscal",        // pega "RECEITA MANUT. REVISÃO FISCAL" normalizado
-  "receita portal revisao fiscal",       // pega "RECEITA PORTAL REVISÃO FISCAL" normalizado
+  "receita manut revisao fiscal",        
+  "receita portal revisao fiscal",       
   "receita revisao fiscal",
   "receita servico calculo st fiscal",
   "receita gob cfiscal",
@@ -147,7 +147,7 @@ function mapRowToDb(row) {
   };
 }
 
-// UPSERT (igual ao seu, só mantive)
+// UPSERT 
 async function upsertTitulo(client, t) {
   const sql = `
     INSERT INTO titulos_financeiro

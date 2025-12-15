@@ -1,9 +1,4 @@
 
-// ===================================================
-// Gera dataset para todas as empresas e parceiros
-// Com DTVENC entre hoje e 9 meses atrás (pagos + em aberto)
-// ===================================================
-
 export function intervaloUltimos9Meses() {
   const hoje = new Date();
   const inicio = new Date(hoje);
@@ -31,9 +26,9 @@ export function dataSetTodasEmpresas6m() {
     orderBy: { $: "DTVENC ASC" },
 
     criteria: {
-      // ✅ todas as empresas, todos parceiros
-      // ✅ pagos + abertos
-      // ✅ receitas (RECDESP = 1)
+      //  todas as empresas, todos parceiros
+      //  pagos + abertos
+      //  receitas (RECDESP = 1)
       expression: { $: "RECDESP = 1  AND DTVENC >= ? AND DTVENC <= ? " },
       parameter: [
         { $: inicioFmt, type: "D" },
@@ -55,10 +50,10 @@ export function dataSetTodasEmpresas6m() {
             "CODEMP",    // f6
             "NUMNOTA",   // f7
             "VLRDESDOB",  // f8
-            "CGC_CPF_PARC",   // f9  (NOVO)
-            "DTNEG",          // f10 (NOVO)
-            "CTABCOBAIXA",    // f11 (NOVO)
-            "HISTORICO"       // f12 (NOVO)
+            "CGC_CPF_PARC",   // f9  
+            "DTNEG",          // f10 
+            "CTABCOBAIXA",    // f11 
+            "HISTORICO"       // f12 
           ].join(",")
         }
       },

@@ -1,4 +1,4 @@
-// src/components/PaginationBar.jsx
+
 
 export function PaginationBar({
   page,
@@ -7,8 +7,8 @@ export function PaginationBar({
   loading,
   onPrev,
   onNext,
-  onExport, // <-- novo
-  showExport, // <-- novo
+  onExport, 
+  showExport, 
 }) {
   if (currentCount === 0) return null;
 

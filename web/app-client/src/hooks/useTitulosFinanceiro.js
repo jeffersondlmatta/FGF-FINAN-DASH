@@ -372,7 +372,7 @@ export function useTitulosFinanceiro() {
     buscarPagosBloqueados,
     buscarParaNegativar,
     buscarParaRemoverRestricao,
-    buscarParceirosBloqueados,   // << AGORA ESTÁ AQUI!
+    buscarParceirosBloqueados,   
 
     carregarMais,
     aplicarLote,

@@ -49,7 +49,7 @@ export async function loadRecordsAllPages(baseDataSet, getPageRecords) {
 
     // critério simples de parada:
     // - se não veio nada
-    // - ou se vier um paginate/flag indicando fim (ajuste conforme a sua resposta)
+    // - ou se vier um paginate/flag indicando fim 
     if (!rows.length) break;
 
     page += 1;

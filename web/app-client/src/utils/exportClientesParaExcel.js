@@ -33,7 +33,7 @@ export function exportClientesParaExcel(titulos) {
     t.dt_vencimento ?? "",
   ]);
 
-  // Monta CSV com ; para ficar amigável ao Excel BR
+  // Monta CSV 
   const csvLines = [
     headers.join(";"),
     ...rows.map((row) =>

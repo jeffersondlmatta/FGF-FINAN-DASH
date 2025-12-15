@@ -30,25 +30,30 @@ export default function ConsultaClientePage() {
   const [selecionado, setSelecionado] = useState(null);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState(null);
+  const [nome, setNome] = useState("");
 
   async function buscarCliente() {
-    try {
-      setErro(null);
-      setLoading(true);
-      setTitulos([]);
-      setSelecionado(null);
+  try {
+    setErro(null);
+    setLoading(true);
+    setTitulos([]);
+    setSelecionado(null);
 
-      const resp = await api.get("/api/consulta-cliente/parceiros", {
-        params: { documento },
-      });
+    const resp = await api.get("/api/consulta-cliente/parceiros", {
+      params: {
+        documento: documento || undefined,
+        nome: nome || undefined,
+      },
+    });
 
-      setClientes(resp.data?.data ?? []);
-    } catch {
-      setErro("Erro ao buscar cliente.");
-    } finally {
-      setLoading(false);
-    }
+    setClientes(resp.data?.data ?? []);
+  } catch {
+    setErro("Erro ao buscar cliente.");
+  } finally {
+    setLoading(false);
   }
+}
+
 
   async function carregarHistorico(cliente) {
     try {
@@ -78,9 +83,25 @@ export default function ConsultaClientePage() {
           type="text"
           placeholder="Digite CNPJ ou CPF"
           value={documento}
-          onChange={(e) => setDocumento(e.target.value)}
+          onChange={(e) => {
+            setDocumento(e.target.value);
+            if (e.target.value) setNome("");
+          }}
         />
-        <button onClick={buscarCliente} disabled={loading || !documento}>
+        <input
+          type="text"
+          placeholder="Digite Nome ou Razão Social"
+          value={nome}
+          onChange={(e) => {
+            setNome(e.target.value);
+            if (e.target.value) setDocumento("");
+          }}
+        />
+
+        <button
+          onClick={buscarCliente}
+          disabled={loading || (!documento && !nome)}
+        >
           {loading ? "Buscando..." : "Buscar"}
         </button>
       </div>
