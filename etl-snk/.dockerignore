@@ -1,11 +1,11 @@
 ############################
-# Node
+# Node.js
 ############################
 node_modules
 npm-debug.log*
 yarn-debug.log*
+yarn-error.log*
 pnpm-debug.log*
-*.log
 
 ############################
 # Environment / Secrets
@@ -13,6 +13,20 @@ pnpm-debug.log*
 .env
 .env.*
 !.env.example
+
+############################
+# Logs
+############################
+logs
+*.log
+
+############################
+# Build / Cache
+############################
+dist
+build
+.cache
+.tmp
 
 ############################
 # Tests / Coverage
@@ -24,39 +38,37 @@ __tests__
 *.spec.js
 
 ############################
-# Build / Cache
-############################
-dist
-build
-.cache
-.tmp
-
-############################
 # Git
 ############################
 .git
 .gitignore
 
 ############################
-# IDE / OS
+# OS / Editor
 ############################
-.vscode
-.idea
 .DS_Store
 Thumbs.db
+.vscode
+.idea
 *.swp
 *.swo
 
 ############################
-# Docker extras
+# Docker (evita auto-cópia inútil)
 ############################
 docker-compose.yml
 docker-compose.*.yml
 
 ############################
-# ETL (não entra no server)
+# ETL artifacts (opcional)
 ############################
-etl
-cronjob
 *.csv
 *.xlsx
+*.jsonl
+*.tmp
+
+############################
+# Misc
+############################
+*.bak
+*.old

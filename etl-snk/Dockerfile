@@ -1,19 +1,20 @@
-FROM node:20-alpine
+FROM node:22-alpine
 
-# Instalar cron
-RUN apk add --no-cache dcron
+# Timezone + cron
+RUN apk add --no-cache dcron tzdata \
+ && cp /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime \
+ && echo "America/Sao_Paulo" > /etc/timezone
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY package.json package-lock.json ./
 RUN npm install --omit=dev
 
-COPY . .
 
-# Copia o arquivo de agendamento
+COPY src ./src
 COPY cronjob /etc/crontabs/root
 
 ENV NODE_ENV=production
 
-# Rodar cron em foreground (obrigatório para Docker)
+# Cron em foreground
 CMD ["crond", "-f", "-l", "2"]

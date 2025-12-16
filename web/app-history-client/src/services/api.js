@@ -1,5 +1,4 @@
 import axios from "axios";
 
-export default axios.create({
-  baseURL: "http://localhost:3333", // seu backend
-});
+export default axios.create({});
+

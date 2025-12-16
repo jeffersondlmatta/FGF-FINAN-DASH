@@ -5,31 +5,18 @@ node_modules
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
-*.log
 
 ############################
-# Environment / Secrets
+# Build output
+############################
+dist
+
+############################
+# Environment
 ############################
 .env
 .env.*
 !.env.example
-
-############################
-# Tests / Coverage
-############################
-coverage
-.nyc_output
-__tests__
-*.test.js
-*.spec.js
-
-############################
-# Build / Cache
-############################
-dist
-build
-.cache
-.tmp
 
 ############################
 # Git
@@ -54,9 +41,8 @@ docker-compose.yml
 docker-compose.*.yml
 
 ############################
-# ETL (não entra no server)
+# Misc
 ############################
-etl
-cronjob
-*.csv
-*.xlsx
+*.log
+*.bak
+*.old
