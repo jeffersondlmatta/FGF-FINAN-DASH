@@ -5,7 +5,7 @@ const { Pool } = pg;
 
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  // ssl: { rejectUnauthorized: false } // habilite se for produção com SSL
+   ssl: { rejectUnauthorized: false } // habilite se for produção com SSL
 });
 
 // helper simples
