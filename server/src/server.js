@@ -23,7 +23,10 @@ const PORT = Number(process.env.PORT || 3333);
 
 
 app.use(cors({
-  origin: "https://fgf-finan-dash-8oal.vercel.app", 
+  origin: [
+    "https://fgf-finan-dash-8oal.vercel.app", 
+    "https://fgf-finan-dash-yduz.vercel.app"
+  ], 
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
