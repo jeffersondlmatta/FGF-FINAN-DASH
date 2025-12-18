@@ -22,11 +22,11 @@ const isProd = process.env.NODE_ENV === "production";
 const PORT = Number(process.env.PORT || 3333);
 
 
-app.use(
-  cors({
-    origin: process.env.CORS_ORIGIN || "*",
-  })
-);
+app.use(cors({
+  origin: "https://fgf-finan-dash-8oal.vercel.app", 
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
 
 app.use(express.json());
 
