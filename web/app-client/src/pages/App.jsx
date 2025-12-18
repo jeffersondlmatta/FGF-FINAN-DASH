@@ -114,6 +114,7 @@ export default function App() {
 
           {/* DESBLOQUEIO */}
           {modo === "desbloqueio" && (
+            <>
             <button
               className="btn btn-warning"
               disabled={selectedCodparcs.length === 0 || updating}
@@ -121,6 +122,16 @@ export default function App() {
             >
               Desbloquear (em lote)
             </button>
+
+            <button
+                className="btn btn-outline"
+                onClick={handleExportarExcel}
+                disabled={updating}
+              >
+                Exportar Excel
+              </button>
+              </>
+            
           )}
 
           {/* NEGATIVAÇÃO */}

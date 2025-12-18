@@ -15,6 +15,14 @@ const router = Router();
 router.get("/clientes", async (req, res) => {
   try {
     const empresa = req.query.empresa?.trim() || null;
+    const negocio = req.query.negocio?.trim() || null;
+
+    if (!negocio) {
+      return res.status(400).json({
+        ok: false,
+        message: "Negócio é obrigatório para desbloqueio."
+      });
+    }
 
     const page = Number(req.query.page ?? 0);
     const pageSize = Math.min(Number(req.query.pageSize ?? 100), 500);
@@ -22,30 +30,28 @@ router.get("/clientes", async (req, res) => {
     const params = [];
     let i = 1;
 
-    // ---------------------------------------------------------------------
-    // WHERE + NOT EXISTS (sem atraso > 20)
-    // ---------------------------------------------------------------------
     let where = `
       UPPER(t.situacao) = 'BLOQUEADO'
       AND UPPER(t.status) = 'PAGO'
+      AND t.negocio = $${i++}
       AND NOT EXISTS (
-            SELECT 1
-              FROM titulos_financeiro x
-             WHERE x.codparc = t.codparc
-               AND x.codemp = t.codemp
-               AND UPPER(x.status) = 'ATRASADO'
-               AND x.atraso > 19
+        SELECT 1
+          FROM titulos_financeiro x
+         WHERE x.codparc = t.codparc
+           AND x.codemp = t.codemp
+           AND x.negocio = t.negocio
+           AND UPPER(x.status) = 'ATRASADO'
+           AND x.atraso > 19
       )
     `;
+
+    params.push(negocio);
 
     if (empresa) {
       where += ` AND t.codemp = $${i++} `;
       params.push(Number(empresa));
     }
 
-    // ---------------------------------------------------------------------
-    // SQL principal com DISTINCT ON para evitar duplicatas por título
-    // ---------------------------------------------------------------------
     const sql = `
       SELECT DISTINCT ON (t.codparc)
              t.codemp,
@@ -87,6 +93,7 @@ router.get("/clientes", async (req, res) => {
     });
   }
 });
+
 
 /**
  * POST /api/desbloqueio/lote

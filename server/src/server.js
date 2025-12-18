@@ -21,7 +21,7 @@ const app = express();
 const isProd = process.env.NODE_ENV === "production";
 const PORT = Number(process.env.PORT || 3333);
 
-// 🔹 Middlewares globais ANTES das rotas
+
 app.use(
   cors({
     origin: process.env.CORS_ORIGIN || "*",
@@ -56,7 +56,7 @@ app.use("/api", (_req, res) =>
 );
 
 // -----------------------------------------------------------------------------
-// Servir front buildado (SPA) — Express 5 compatível
+// Servir front buildado (SPA)
 // -----------------------------------------------------------------------------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

@@ -95,14 +95,22 @@ export function useTitulosFinanceiro() {
   const buscarPagosBloqueados = useCallback(async () => {
     try {
       limparErro();
+      if (!negocio) {
+      return setErro("Selecione o negócio.");
+    }
 
       setLoading(true);
       setModo("desbloqueio");
       setPage(0);
 
       const resp = await api.get("/api/desbloqueio/clientes", {
-        params: { empresa, page: 0, pageSize },
-      });
+      params: {
+        empresa: empresa || "",
+        negocio,
+        page: 0,
+        pageSize,
+      },
+    });
 
       const lista = resp.data?.data ?? [];
       setTitulos(lista);
@@ -113,7 +121,7 @@ export function useTitulosFinanceiro() {
     } finally {
       setLoading(false);
     }
-  }, [empresa]);
+  }, [empresa, negocio, pageSize]);
 
   // ---------------------------------------------------------------------------
   // NEGATIVAÇÃO
