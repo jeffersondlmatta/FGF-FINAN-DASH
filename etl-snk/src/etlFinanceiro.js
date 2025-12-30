@@ -70,24 +70,24 @@ function getNegocio(codemp) {
 
 // LISTA OFICIAL DE NATUREZAS PERMITIDAS
 const naturezasReceitaBase = [
-  "receita de contabilidade retroativa",
-  "receita de contabilidade",
-  "receita servicos avulsos contabil",
-  "servicos avulsos contabilidade",
-  "servicos avulsos departamento pessoal",
-  "servicos avulsos legalizacao",
-  "receita manut revisao fiscal",        
-  "receita portal revisao fiscal",       
-  "receita revisao fiscal",
-  "receita servico calculo st fiscal",
-  "receita gob cfiscal",
-  "receita gob implantacao",
-  "receita gob perdcomp",
-  "receita gob retroativo",
+  "RECEITA DE CONTABILIDADE RETROATIVA",
+  "RECEITA DE CONTABILIDADE",
+  "RECEITA SERVIÇOS AVULSOS CONTABIL",
+  "SERVIÇOS AVULSOS CONTABILIDADE",
+  "SERVIÇOS AVULSOS DEPARTAMENTO PESSOAL",
+  "SERVIÇOS AVULSOS LEGALIZAÇÃO",
+  "RECEITA MANUT. REVISÃO FISCAL",
+  "RECEITA PORTAL REVISÃO FISCAL",
+  "RECEITA REVISÃO FISCAL",
+  "RECEITA SERVIÇO CÁLCULO ST FISCAL",
+  "RECEITA GOB CFISCAL",
+  "RECEITA GOB IMPLANTAÇÃO",
+  "RECEITA GOB PERDCOMP",
+  "RECEITA GOB RETROATIVO",
 ];
 
 // transforma tudo em forma normalizada e já joga num Set
-const naturezasReceitaSet = new Set(
+  const naturezasReceitaSet = new Set(
   naturezasReceitaBase.map((n) => normalize(n))
 );
 
@@ -205,26 +205,49 @@ async function upsertTitulo(client, t) {
 // LOTE
 export async function carregarTitulosNoBanco(registros) {
   const client = await pool.connect();
+
   try {
     await client.query("BEGIN");
 
+    // --------------------------------------------------
+    // 1) UPSERT DOS TÍTULOS DO PERÍODO
+    // --------------------------------------------------
     for (const row of registros) {
       const t = mapRowToDb(row);
 
       const descrNorm = normalize(t.descr_natureza || "");
       const naturezaValida = naturezasReceitaSet.has(descrNorm);
-
       const ativo = (t.ativo_contrato || "").toString().trim().toUpperCase();
 
-      if (!t.nufin || !t.numnota || t.numnota === 0 || !naturezaValida || ativo !== "S") {
+      if (
+        !t.nufin ||
+        !t.numnota ||
+        t.numnota === 0 ||
+        !naturezaValida ||
+        ativo !== "S"
+      ) {
         continue;
       }
 
       await upsertTitulo(client, t);
     }
 
+    // --------------------------------------------------
+    // 2) LIMPEZA AUTOMÁTICA (HOJE - 5 MESES)
+    // --------------------------------------------------
+    await client.query(`
+      DELETE FROM titulos_financeiro
+      WHERE dt_vencimento IS NULL
+         OR dt_vencimento < CURRENT_DATE - INTERVAL '5 months'
+    `);
+
+    // --------------------------------------------------
+    // 3) FINALIZA TRANSAÇÃO
+    // --------------------------------------------------
     await client.query("COMMIT");
+
     return { ok: true, count: registros.length };
+
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;
@@ -232,3 +255,4 @@ export async function carregarTitulosNoBanco(registros) {
     client.release();
   }
 }
+
